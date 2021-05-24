@@ -11,8 +11,8 @@ I wrote almost everything. See Attribution section for details
   </ol>
 
 ## Configuration:
-  To configure the program, use monitors to configure the program. Once it is configured,
-  the monitors are no longer necessary but can display information still <p>
+  To configure the program, use monitors. Once it is configured,
+  the monitors are no longer necessary but can still display information. <p>
   The minimum monitor size is 2x2. Use a height of 4 to have access to all settings.
 
 ## Update History:
