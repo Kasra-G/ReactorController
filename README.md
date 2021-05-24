@@ -6,8 +6,7 @@ I wrote almost everything. See Attribution section for details
     either with wired modems or directly on it. Then, follow these steps:
   <ol>
     <li>Paste and run the following command: <br />
-      &emsp;pastebin run w6vVtrLb</li>
-    <li>Reboot</li>
+      &emsp;pastebin run kSkwEchg</li>
     <li>Optionally calibrate. The output of the calibration is currently unused.</li>
   </ol>
 
