@@ -11,13 +11,13 @@ I wrote almost everything. See Attribution section for details
   </ol>
 
 ## Configuration:
-  Optionally use monitors to configure the program. Once it is configured,
-  you do not need monitors anymore. <p>
-  Monitors can be used to display information about the reactor. 
+  To configure the program, use monitors to configure the program. Once it is configured,
+  the monitors are no longer necessary but can display information still <p>
   The minimum monitor size is 2x2. Use a height of 4 to have access to all settings.
 
-## Update history:
+## Update History:
 Last update: 5/24/2021 <p>
+  <b>5/24/2021:</b> Added support for Extreme Reactors and Big Reactors <p>
   <b>5/24/2021:</b> Started tracking update history / Uploaded to GitHub <p>
 
 ## Attributions:
