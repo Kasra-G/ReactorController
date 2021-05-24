@@ -1,4 +1,4 @@
-# ReactorController
+# ComputerCraft Automated Reactor Controller
 This program made by DrunkenKas. 
 I wrote almost everything. See Attribution section for details
 ## Installation:
