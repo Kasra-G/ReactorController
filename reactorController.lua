@@ -1,5 +1,5 @@
-local tag = "config_reactor"
-version = "0.41"
+local tag = "reactorConfig"
+version = "0.42"
 --[[
 Program made by DrunkenKas
 	See github: https://github.com/Kasra-G/ReactorController/#readme
@@ -138,6 +138,9 @@ end
 
 --adds buttons
 local function addButtons()
+    if (sizey == 24) then
+        oo = 1
+    end
     addButt("On", nil, {8, 3}, dim + 7, 3 + oo,
         colors.red, colors.lime)
     addButt("Off", nil, {8, 3}, dim + 19, 3 + oo,
@@ -417,11 +420,13 @@ end
 
 local function drawControls()
     if (sizey == 24) then
-        oo = 1
-        drawBox({sizex - dim - 3, 10}, dim + 2, oo, 
+        drawBox({sizex - dim - 3, 9}, dim + 2, oo, 
             colors.cyan)
         drawText(" Reactor Controls ", dim + 7, oo + 1, 
             colors.black, colors.cyan)
+        drawText("Reactor "..(btnOn and "Online" or "Offline"), 
+            dim + 10, 3 + oo,
+            colors.black, btnOn and colors.green or colors.red)
     else
         drawBox({sizex - dim - 3, 23}, dim + 2, oo, 
             colors.cyan)
@@ -723,7 +728,7 @@ local function initializeVars()
     if (not fs.exists(tag..".txt")) then
         print("Config file "..tag.." not found, generating a default one!")
         repeat
-            term.write("The program can be optionally calibrated. Proceed? (y/n) ")
+            print("The program can be optionally calibrated. Proceed? (y/n) ")
             local response = read()
             if (response == "n") then
                 print("Calibration skipped. Some functions may be unavailable")
@@ -833,8 +838,9 @@ function threadMain()
     reDrawButtons()
     saveChanges()
     print("Reactor initialization done!")
-	sleep(1)
-    resetMon()
+	sleep(2)
+    term.clear()
+    term.setCursorPos(1,1)
     os.startThread(resizer)
     os.startThread(routine)
     print("Reactor Controller Version "..version)

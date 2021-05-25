@@ -1,18 +1,7 @@
 --Github: https://github.com/Kasra-G/ReactorController/#readme
---pastebin run w6vVtrLb
 
 fs.makeDir("/usr")
 fs.makeDir("/usr/apis")
-
---Overwrite startup file
-local file = fs.open("startup", "w")
-file.writeLine("shell.run(\"pastebin run w6vVtrLb\")")
-file.writeLine("while (true) do")
-file.writeLine("	shell.run(\"reactorController.lua\")")
-file.writeLine("	sleep(2)")
-file.writeLine("end")
-file.close()
-
 
 local filesToUpdate = {
 	["/reactorController.lua"] = "b17hfTqe",
