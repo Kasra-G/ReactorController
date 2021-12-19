@@ -4,11 +4,11 @@ By DrunkenKas
 Easily automate your Big/Bigger/Extreme reactor with a pretty graphical UI. <br />
 
 ## Features:
-  <ol>
+  <bl>
   <li>Easy installer</li>
   <li>User friendly graphics</li>
   <li></li>
-  </ol>
+  </bl>
   
 ## Installation:
   To install, place and connect an Advanced Computer to a valid Reactor's Computer Port, <br />
