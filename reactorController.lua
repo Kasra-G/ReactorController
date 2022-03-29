@@ -1,5 +1,5 @@
 local tag = "reactorConfig"
-version = "0.42"
+version = "0.43"
 --[[
 Program made by DrunkenKas
 	See github: https://github.com/Kasra-G/ReactorController/#readme
