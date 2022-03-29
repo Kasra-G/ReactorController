@@ -537,15 +537,9 @@ local function reDrawButtons()
 end
 
 local function setRods(level)
-    if (reactorVersion == "Big Reactors") then
-        reactor.setAllControlRodLevels(level)
-    elseif (reactorVersion == "Bigger Reactors") then
-        reactor.setAllControlRodLevels(level)
-    elseif (reactorVersion == "Extreme Reactors") then
-        for i in pairs(reactor.getControlRodsLevels()) do
-            reactor.setControlRodLevel(i, level)
-        end
-    end
+    level = math.max(level, 0)
+    level = math.min(level, 100)
+    reactor.setAllControlRodLevels(level)
 end
 
 --Turns off the reactor
