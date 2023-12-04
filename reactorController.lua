@@ -579,6 +579,45 @@ local function turnOn()
     end
 end
 
+function lerp(start, finish, t)
+    -- Ensure t is in the range [0, 1]
+    t = math.max(0, math.min(1, t))
+
+    -- Calculate the linear interpolation
+    return (1 - t) * start + t * finish
+end
+
+
+-- Define PID controller parameters
+local pid = {
+    setpointRFT = 0,      -- Target RFT
+    setpointRF = 0,      -- Target RF
+    Kp = -.08,           -- Proportional gain
+    Ki = -.0015,          -- Integral gain
+    Kd = -.01,         -- Derivative gain
+    integral = 0,       -- Integral term accumulator
+    lastError = 0,      -- Last error for derivative term
+}
+
+local function iteratePID(pid, error)
+    -- Proportional term
+    local P = pid.Kp * error
+
+    -- Integral term
+    pid.integral = pid.integral + pid.Ki * error
+    pid.integral = math.max(math.min(100, pid.integral), -100)
+
+    -- Derivative term
+    local derivative = pid.Kd * (error - pid.lastError)
+
+    -- Calculate control rod level
+    local rodLevel = math.max(math.min(P + pid.integral + derivative, 100), 0)
+
+    -- Update PID controller state
+    pid.lastError = error
+    return rodLevel
+end
+
 --adjusts the level of the rods
 local function adjustRods()
     local currentRF = storedThisTick
@@ -592,23 +631,24 @@ local function adjustRods()
     local diffRFT = currentRFT/targetRFT
     local targetRF = diffRF / 2 + minRF
 
-    currentRF = math.min(currentRF, maxRF)
-    local equation1 = math.min((currentRF - minRF)/diffRF, 1)
-    equation1 = math.max(equation1, 0)
-    
-	local rodLevel = rod
-    if (storedThisTick < minRF) then
-        rodLevel = 0
-    elseif ((storedThisTick < maxRF and storedThisTick > minRF)) then
-        equation1 = equation1 * (currentRF / targetRF) --^ 2
-        equation1 = equation1 * diffRFT --^ 5
-        equation1 = equation1 * 100
+    pid.setpointRFT = targetRFT
+    pid.setpointRF = targetRF / capacity * 1000
 
-        rodLevel = equation1
-    elseif (storedThisTick > maxRF) then
-        rodLevel = 100
-    end
-    setRods(rodLevel)
+    local errorRFT = pid.setpointRFT - currentRFT
+    local errorRF = pid.setpointRF - currentRF / capacity * 1000
+
+    local W_RFT = lerp(1, 0, (math.abs(targetRF - currentRF) / capacity / (diffr / 4)))
+    W_RFT = math.max(math.min(W_RFT, 1), 0)
+
+    local W_RF = (1 - W_RFT)  -- Adjust the weight for energy error
+
+    -- Combine the errors with weights
+    local combinedError = W_RFT * errorRFT + W_RF * errorRF
+    local error = combinedError
+    local rftRodLevel = iteratePID(pid, error)
+
+    -- Set control rod levels
+    setRods(rftRodLevel)
 end
 
 --Saves the configuration of the reactor controller
