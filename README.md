@@ -1,13 +1,22 @@
 # ComputerCraft Automated Reactor Controller
-This program made by DrunkenKas. 
-I wrote almost everything. See Attribution section for details
+
+Easily automate your Big/Bigger/Extreme reactor with a pretty graphical UI. <br />
+
+## Features:
+  <bl>
+  <li>One line installer</li>
+  <li>Modular displays</li>
+  <li>Tested recently on Extreme / Bigger Reactors</li>
+  </bl>
+  
 ## Installation:
   To install, place and connect an Advanced Computer to a valid Reactor's Computer Port, <br />
     either with wired modems or directly on it. Then, follow these steps:
   <ol>
-    <li>Paste and run the following command: <br />
-      &emsp;pastebin run kSkwEchg</li>
-    <li>Choose whether to calibrate or not. The calibration is not currently used for anything.</li>
+    <li>Run the following command in the Computer: <br />
+      <code>pastebin run kSkwEchg</code>
+    </li>
+    <li>Choose whether to calibrate or not. The calibration is only used if using Big Reactors. It gets an estimate of the RF capacity of your reactor.</li>
   </ol>
 
 ## Configuration:
@@ -23,9 +32,14 @@ I wrote almost everything. See Attribution section for details
 ![2021-05-24_20 30 35](https://user-images.githubusercontent.com/18647702/119422461-25997c00-bccf-11eb-9be3-9b2ad6b355bf.png)
 ![2021-05-24_20 30 13](https://user-images.githubusercontent.com/18647702/119422464-27fbd600-bccf-11eb-8a38-61909bb6aae8.png)
 
+## Known Issues:
+- If the reactor has a very large max RF/t generation capacity but a low RF/t drain, it may oscillate around the target buffer
+  - Workaround: increase the range of the buffer (usefulness will vary)
+- Reactor statistics will be inaccurate for 1-2s of power up
   
 ## Update History:
-Last update: 5/24/2021 <p>
+Last update: 12/04/2023 <p>
+  <b>12/04/2023:</b> Changed Control rod insertion logic to use a PID controller <p>
   <b>5/24/2021:</b> Added support for Extreme Reactors and Big Reactors <p>
   <b>5/24/2021:</b> Started tracking update history / Uploaded to GitHub <p>
 
@@ -38,10 +52,9 @@ Last update: 5/24/2021 <p>
     Buttons use Touchpoint API, though one line was modified <br />
     http://www.computercraft.info/forums2/index.php?/topic/14784-touchpoint-api/ </li>
   <li><b>Immibis: </b><br />
-    Although not necessary, I used Thread API <br />
+    Thread API to detect monitor size changes<br />
     http://www.computercraft.info/forums2/index.php?/topic/3479-basic-background-thread-api/ </li>
   <li><b>Eniallator: </b><br />
-    Program uses his updator script <br />
+    Updater script to automatically roll out changes to users <br />
   http://www.computercraft.info/forums2/index.php?/topic/25101-program-automatic-updater/" </li>
  </ul>
-    

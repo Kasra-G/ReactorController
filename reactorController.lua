@@ -1,5 +1,5 @@
 local tag = "reactorConfig"
-version = "0.43"
+version = "0.50"
 --[[
 Program made by DrunkenKas
 	See github: https://github.com/Kasra-G/ReactorController/#readme
@@ -38,11 +38,22 @@ local t
 local displayingGraphMenu = false
 local calibrated = false
 
+local secondsToAverage = 2
+
+local averageStoredThisTick = 0
+local averageLastRFT = 0
+local averageRod = 0
+local averageFuelUsage = 0
+local averageWaste = 0
+local averageFuelTemp = 0
+local averageCaseTemp = 0
+local averageRfLost = 0
+
 --table of which graphs to draw
 local graphsToDraw = {}
 
 --table of all the graphs
-local graphs = 
+local graphs =
 {
     "Energy Buffer",
     "Control Level",
@@ -50,12 +61,12 @@ local graphs =
 }
 
 --marks the offsets for each graph position
-local XOffs = 
+local XOffs =
 {
-    { 4, true}, 
-    {27, true}, 
-    {50, true}, 
-    {73, true}, 
+    { 4, true},
+    {27, true},
+    {50, true},
+    {73, true},
     {96, true},
 }
 
@@ -129,10 +140,10 @@ end
 --Helper method for adding buttons
 local function addButt(name, callBack, size, xoff, yoff, color1, color2)
     if (monSide ~= nil) then
-        t:add(name, callBack, 
-            xoff + 1, yoff + 1, 
-            size[1] + xoff, size[2] + yoff, 
-            color1, color2)	
+        t:add(name, callBack,
+                xoff + 1, yoff + 1,
+                size[1] + xoff, size[2] + yoff,
+                color1, color2)
     end
 end
 
@@ -142,9 +153,9 @@ local function addButtons()
         oo = 1
     end
     addButt("On", nil, {8, 3}, dim + 7, 3 + oo,
-        colors.red, colors.lime)
+            colors.red, colors.lime)
     addButt("Off", nil, {8, 3}, dim + 19, 3 + oo,
-        colors.red, colors.lime)
+            colors.red, colors.lime)
     if (btnOn) then
         t:toggleButton("On")
     else
@@ -152,13 +163,13 @@ local function addButtons()
     end
     if (sizey > 24) then
         addButt("+ 10", nil, {8, 3}, dim + 7, 14 + oo,
-            colors.purple, colors.pink)
+                colors.purple, colors.pink)
         addButt(" + 10 ", nil, {8, 3}, dim + 19, 14 + oo,
-            colors.magenta, colors.pink)
+                colors.magenta, colors.pink)
         addButt("- 10", nil, {8, 3}, dim + 7, 18 + oo,
-            colors.purple, colors.pink)
+                colors.purple, colors.pink)
         addButt(" - 10 ", nil, {8, 3}, dim + 19, 18 + oo,
-            colors.magenta, colors.pink)
+                colors.magenta, colors.pink)
     end
 end
 
@@ -173,7 +184,7 @@ local function resetMon()
 end
 
 local function getPercPower()
-    return storedThisTick / capacity * 100
+    return averageStoredThisTick / capacity * 100
 end
 
 local function rnd(num, dig)
@@ -181,7 +192,7 @@ local function rnd(num, dig)
 end
 
 local function getEfficiency()
-    return lastRFT / fuelUsage
+    return averageLastRFT / averageFuelUsage
 end
 
 local function getGenRatio()
@@ -239,8 +250,8 @@ local function addGraphButtons()
     offy = oo - 14
     for i,v in pairs(graphs) do
         addButt(v, nil, {20, 3},
-            dim + 7, offy + i * 3 - 1,
-            colors.red, colors.lime)
+                dim + 7, offy + i * 3 - 1,
+                colors.red, colors.lime)
         if (graphsToDraw[v] ~= nil) then
             t:toggleButton(v)
         end
@@ -248,11 +259,11 @@ local function addGraphButtons()
 end
 
 local function drawGraphButtons()
-    drawBox({sizex - dim - 3, oo - offy - 1}, 
-        dim + 2, offy, colors.orange)
+    drawBox({sizex - dim - 3, oo - offy - 1},
+            dim + 2, offy, colors.orange)
     drawText(" Graph Controls ",
-        dim + 7, offy + 1,
-        colors.black, colors.orange)
+            dim + 7, offy + 1,
+            colors.black, colors.orange)
 end
 
 local function isGraph(name)
@@ -300,24 +311,24 @@ local function drawEnergyBuffer(xoff)
     local poff = right and off + 15 or off - 6
 
     drawBox({15, srf + 2}, off - 1, 4, colors.gray)
-    local pwr = math.floor(getPercPower() / 100 
-        * (srf))
+    local pwr = math.floor(getPercPower() / 100
+            * (srf))
     drawFilledBox({13, srf}, off, 5,
-        colors.red, colors.red)
+            colors.red, colors.red)
     local rndpw = rnd(getPercPower(), 2)
     local color = (rndpw < maxb and rndpw > minb) and colors.green
-    or (rndpw >= maxb and colors.orange or colors.blue)
+            or (rndpw >= maxb and colors.orange or colors.blue)
     if (pwr > 0) then
         drawFilledBox({13, pwr + 1}, off, srf + 4 - pwr,
-            color, color)
+                color, color)
     end
     --drawPoint(off + 14, srf + 5 - pwr, pwr > 0 and color or colors.red)
     drawText(string.format(right and "%.2f%%" or "%5.2f%%", rndpw), poff, srf + 5 - pwr,
-        colors.black, color)
+            colors.black, color)
     drawText("Energy Buffer", off + 1, 4,
-        colors.black, colors.orange)
-    drawText(format(storedThisTick).."RF", off + 1, srf + 5 - pwr,
-        pwr > 0 and color or colors.red, colors.black)
+            colors.black, colors.orange)
+    drawText(format(averageStoredThisTick).."RF", off + 1, srf + 5 - pwr,
+            pwr > 0 and color or colors.red, colors.black)
 end
 
 local function drawControlLevel(xoff)
@@ -325,17 +336,17 @@ local function drawControlLevel(xoff)
     local off = xoff
     drawBox({15, srf + 2}, off - 1, 4, colors.gray)
     drawFilledBox({13, srf}, off, 5,
-        colors.red, colors.red)
-    local rodTr = math.floor(rod / 100 
-        * (srf))
+            colors.yellow, colors.yellow)
+    local rodTr = math.floor(averageRod / 100
+            * (srf))
     drawText("Control Level", off + 1, 4,
-        colors.black, colors.orange)
+            colors.black, colors.orange)
     if (rodTr > 0) then
         drawFilledBox({9, rodTr}, off + 2, 5,
-            colors.orange, colors.orange)
+                colors.white, colors.white)
     end
-    drawText(string.format("%6.2f%%", rod), off + 4, rodTr > 0 and rodTr + 5 or 6,
-        rodTr > 0 and colors.orange or colors.red, colors.black)
+    drawText(string.format("%6.2f%%", averageRod), off + 4, rodTr > 0 and rodTr + 5 or 6,
+            rodTr > 0 and colors.white or colors.yellow, colors.black)
 
 end
 
@@ -346,47 +357,50 @@ local function drawTemperatures(xoff)
     --drawFilledBox({12, srf}, off, 5,
     --	colors.red, colors.red)
 
-    local fuelRnd = math.floor(fuelTemp)
-    local caseRnd = math.floor(caseTemp)
-    local fuelTr = math.floor(fuelRnd / 2000 
-        * (srf))
+    local tempUnit = (reactorVersion == "Bigger Reactors") and "K" or "C"
+    local tempFormat = "%4s"..tempUnit
+
+    local fuelRnd = math.floor(averageFuelTemp)
+    local caseRnd = math.floor(averageCaseTemp)
+    local fuelTr = math.floor(fuelRnd / 2000
+            * (srf))
     local caseTr = math.floor(caseRnd / 2000
-        * (srf))
+            * (srf))
     drawText(" Case ", off + 2, 5,
-        colors.gray, colors.lightBlue)
+            colors.gray, colors.lightBlue)
     drawText(" Fuel ", off + 9, 5,
-        colors.gray, colors.magenta)
+            colors.gray, colors.magenta)
     if (fuelTr > 0) then
         fuelTr = math.min(fuelTr, srf)
         drawFilledBox({6, fuelTr}, off + 8, srf + 5 - fuelTr,
-            colors.magenta, colors.magenta)
+                colors.magenta, colors.magenta)
 
-        drawText(string.format("%4sC", fuelRnd..""), 
-            off + 10, srf + 6 - fuelTr,
-            colors.magenta, colors.black)
+        drawText(string.format(tempFormat, fuelRnd..""),
+                off + 10, srf + 6 - fuelTr,
+                colors.magenta, colors.black)
     else
-        drawText(string.format("%4sC", fuelRnd..""), 
-            off + 10, srf + 5,
-            colors.black, colors.magenta)
+        drawText(string.format(tempFormat, fuelRnd..""),
+                off + 10, srf + 5,
+                colors.black, colors.magenta)
     end
 
     if (caseTr > 0) then
         caseTr = math.min(caseTr, srf)
         drawFilledBox({6, caseTr}, off + 1, srf + 5 - caseTr,
-            colors.lightBlue, colors.lightBlue)
-        drawText(string.format("%4sC", caseRnd..""), 
-            off + 3, srf + 6 - caseTr,
-            colors.lightBlue, colors.black)
+                colors.lightBlue, colors.lightBlue)
+        drawText(string.format(tempFormat, caseRnd..""),
+                off + 3, srf + 6 - caseTr,
+                colors.lightBlue, colors.black)
     else
-        drawText(string.format("%4sC", caseRnd..""), 
-            off + 3, srf + 5,
-            colors.black, colors.lightBlue)
+        drawText(string.format(tempFormat, caseRnd..""),
+                off + 3, srf + 5,
+                colors.black, colors.lightBlue)
     end
 
     drawText("Temperatures", off + 2, 4,
-        colors.black, colors.orange)
+            colors.black, colors.orange)
     drawBox({1, srf}, off + 7, 5,
-        colors.gray)
+            colors.gray)
 end
 
 local beg
@@ -411,76 +425,76 @@ end
 local function drawStatus()
     if (dim > -1) then
         drawBox({dim, sizey - 2},
-            1, 1, colors.lightBlue)
-        drawText(" Reactor Graphs ", dim - 18, 2, 
-            colors.black, colors.lightBlue)
+                1, 1, colors.lightBlue)
+        drawText(" Reactor Graphs ", dim - 18, 2,
+                colors.black, colors.lightBlue)
         drawGraphs()
     end
 end
 
 local function drawControls()
     if (sizey == 24) then
-        drawBox({sizex - dim - 3, 9}, dim + 2, oo, 
-            colors.cyan)
-        drawText(" Reactor Controls ", dim + 7, oo + 1, 
-            colors.black, colors.cyan)
-        drawText("Reactor "..(btnOn and "Online" or "Offline"), 
-            dim + 10, 3 + oo,
-            colors.black, btnOn and colors.green or colors.red)
+        drawBox({sizex - dim - 3, 9}, dim + 2, oo,
+                colors.cyan)
+        drawText(" Reactor Controls ", dim + 7, oo + 1,
+                colors.black, colors.cyan)
+        drawText("Reactor "..(btnOn and "Online" or "Offline"),
+                dim + 10, 3 + oo,
+                colors.black, btnOn and colors.green or colors.red)
     else
-        drawBox({sizex - dim - 3, 23}, dim + 2, oo, 
-            colors.cyan)
-        drawText(" Reactor Controls ", dim + 7, oo + 1, 
-            colors.black, colors.cyan)
+        drawBox({sizex - dim - 3, 23}, dim + 2, oo,
+                colors.cyan)
+        drawText(" Reactor Controls ", dim + 7, oo + 1,
+                colors.black, colors.cyan)
         drawFilledBox({20, 3}, dim + 7, 8 + oo,
-            colors.red, colors.red)
-        drawFilledBox({(maxb - minb) / 5, 3}, 
-            dim + 7 + minb / 5, 8 + oo, 
-            colors.green, colors.green)
+                colors.red, colors.red)
+        drawFilledBox({(maxb - minb) / 5, 3},
+                dim + 7 + minb / 5, 8 + oo,
+                colors.green, colors.green)
         drawText(string.format("%3s", minb.."%"), dim + 6 + minb / 5, 12 + oo,
-            colors.black, colors.purple)
+                colors.black, colors.purple)
         drawText(maxb.."%", dim + 8 + maxb / 5, 12 + oo,
-            colors.black, colors.magenta)
+                colors.black, colors.magenta)
         drawText("Buffer Target Range", dim + 8, 8 + oo,
-            colors.black, colors.orange)
+                colors.black, colors.orange)
         drawText("Min", dim + 10, 14 + oo,
-            colors.black, colors.purple)
+                colors.black, colors.purple)
         drawText("Max", dim + 22, 14 + oo,
-            colors.black, colors.magenta)
-        drawText("Reactor ".. (btnOn and "Online" or "Offline"), 
-            dim + 10, 3 + oo,
-            colors.black, btnOn and colors.green or colors.red)
+                colors.black, colors.magenta)
+        drawText("Reactor ".. (btnOn and "Online" or "Offline"),
+                dim + 10, 3 + oo,
+                colors.black, btnOn and colors.green or colors.red)
     end
 end
 
 local function drawStatistics()
     local oS = sizey - 13
     drawBox({sizex - dim - 3, sizey - oS - 1}, dim + 2, oS,
-        colors.blue)
+            colors.blue)
     drawText(" Reactor Statistics ", dim + 7, oS + 1,
-        colors.black, colors.blue)
+            colors.black, colors.blue)
 
     --statistics
     drawText("Generating : "
-        ..format(lastRFT).."RF/t", dim + 5, oS + 3,
-        colors.black, colors.green)
+            ..format(averageLastRFT).."RF/t", dim + 5, oS + 3,
+            colors.black, colors.green)
     drawText("RF Drain   "
-        ..(storedThisTick <= lastRFT and "> " or ": ")
-        ..format(rfLost)
-        .."RF/t", dim + 5, oS + 5,
-        colors.black, colors.red)
+            ..(averageStoredThisTick <= averageLastRFT and "> " or ": ")
+            ..format(averageRfLost)
+            .."RF/t", dim + 5, oS + 5,
+            colors.black, colors.red)
     drawText("Efficiency : "
-        ..format(getEfficiency()).."RF/B", 
-        dim + 5, oS + 7,
-        colors.black, colors.green)
+            ..format(getEfficiency()).."RF/B",
+            dim + 5, oS + 7,
+            colors.black, colors.green)
     drawText("Fuel Usage : "
-        ..format(fuelUsage)
-        .."B/t", dim + 5, oS + 9,
-        colors.black, colors.green)
+            ..format(averageFuelUsage)
+            .."B/t", dim + 5, oS + 9,
+            colors.black, colors.green)
     drawText("Waste      : "
-        ..string.format("%7d mB", waste),
-        dim + 5, oS + 11,
-        colors.black, colors.green)
+            ..string.format("%7d mB", waste),
+            dim + 5, oS + 11,
+            colors.black, colors.green)
 end
 
 --Draw a scene
@@ -565,6 +579,45 @@ local function turnOn()
     end
 end
 
+function lerp(start, finish, t)
+    -- Ensure t is in the range [0, 1]
+    t = math.max(0, math.min(1, t))
+
+    -- Calculate the linear interpolation
+    return (1 - t) * start + t * finish
+end
+
+
+-- Define PID controller parameters
+local pid = {
+    setpointRFT = 0,      -- Target RFT
+    setpointRF = 0,      -- Target RF
+    Kp = -.08,           -- Proportional gain
+    Ki = -.0015,          -- Integral gain
+    Kd = -.01,         -- Derivative gain
+    integral = 0,       -- Integral term accumulator
+    lastError = 0,      -- Last error for derivative term
+}
+
+local function iteratePID(pid, error)
+    -- Proportional term
+    local P = pid.Kp * error
+
+    -- Integral term
+    pid.integral = pid.integral + pid.Ki * error
+    pid.integral = math.max(math.min(100, pid.integral), -100)
+
+    -- Derivative term
+    local derivative = pid.Kd * (error - pid.lastError)
+
+    -- Calculate control rod level
+    local rodLevel = math.max(math.min(P + pid.integral + derivative, 100), 0)
+
+    -- Update PID controller state
+    pid.lastError = error
+    return rodLevel
+end
+
 --adjusts the level of the rods
 local function adjustRods()
     local currentRF = storedThisTick
@@ -578,23 +631,24 @@ local function adjustRods()
     local diffRFT = currentRFT/targetRFT
     local targetRF = diffRF / 2 + minRF
 
-    currentRF = math.min(currentRF, maxRF)
-    local equation1 = math.min((currentRF - minRF)/diffRF, 1)
-    equation1 = math.max(equation1, 0)
-    
-	local rodLevel = rod
-    if (storedThisTick < minRF) then
-        rodLevel = 0
-    elseif ((storedThisTick < maxRF and storedThisTick > minRF)) then
-        equation1 = equation1 * (currentRF / targetRF) --^ 2
-        equation1 = equation1 * diffRFT --^ 5
-        equation1 = equation1 * 100
+    pid.setpointRFT = targetRFT
+    pid.setpointRF = targetRF / capacity * 1000
 
-        rodLevel = equation1
-    elseif (storedThisTick > maxRF) then
-        rodLevel = 100
-    end
-    setRods(rodLevel)
+    local errorRFT = pid.setpointRFT - currentRFT
+    local errorRF = pid.setpointRF - currentRF / capacity * 1000
+
+    local W_RFT = lerp(1, 0, (math.abs(targetRF - currentRF) / capacity / (diffr / 4)))
+    W_RFT = math.max(math.min(W_RFT, 1), 0)
+
+    local W_RF = (1 - W_RFT)  -- Adjust the weight for energy error
+
+    -- Combine the errors with weights
+    local combinedError = W_RFT * errorRFT + W_RF * errorRF
+    local error = combinedError
+    local rftRodLevel = iteratePID(pid, error)
+
+    -- Set control rod levels
+    setRods(rftRodLevel)
 end
 
 --Saves the configuration of the reactor controller
@@ -627,6 +681,14 @@ local function getPeripheral(name)
     end
     return ""
 end
+local storedThisTickValues = {}
+local lastRFTValues = {}
+local rodValues = {}
+local fuelUsageValues = {}
+local wasteValues = {}
+local fuelTempValues = {}
+local caseTempValues = {}
+local rfLostValues = {}
 
 local function updateStats()
     storedLastTick = storedThisTick
@@ -651,7 +713,7 @@ local function updateStats()
         fuelTemp = reactor.getFuelTemperature()
         caseTemp = reactor.getCasingTemperature()
     elseif (reactorVersion == "Bigger Reactors") then
-   		storedThisTick = reactor.battery().stored()
+        storedThisTick = reactor.battery().stored()
         lastRFT = reactor.battery().producedLastTick()
         capacity = reactor.battery().capacity()
         rod = reactor.getControlRod(0).level()
@@ -661,7 +723,50 @@ local function updateStats()
         caseTemp = reactor.casingTemperature()
     end
     rfLost = lastRFT + storedLastTick - storedThisTick
+    -- Add the values to the arrays
+    table.insert(storedThisTickValues, storedThisTick)
+    table.insert(lastRFTValues, lastRFT)
+    table.insert(rodValues, rod)
+    table.insert(fuelUsageValues, fuelUsage)
+    table.insert(wasteValues, waste)
+    table.insert(fuelTempValues, fuelTemp)
+    table.insert(caseTempValues, caseTemp)
+    table.insert(rfLostValues, rfLost)
+
+    local maxIterations = 20 * secondsToAverage
+    while #storedThisTickValues > maxIterations do
+        table.remove(storedThisTickValues, 1)
+        table.remove(lastRFTValues, 1)
+        table.remove(rodValues, 1)
+        table.remove(fuelUsageValues, 1)
+        table.remove(wasteValues, 1)
+        table.remove(fuelTempValues, 1)
+        table.remove(caseTempValues, 1)
+        table.remove(rfLostValues, 1)
+    end
+
+    -- Calculate running averages
+    averageStoredThisTick = calculateAverage(storedThisTickValues)
+    averageLastRFT = calculateAverage(lastRFTValues)
+    averageRod = calculateAverage(rodValues)
+    averageFuelUsage = calculateAverage(fuelUsageValues)
+    averageWaste = calculateAverage(wasteValues)
+    averageFuelTemp = calculateAverage(fuelTempValues)
+    averageCaseTemp = calculateAverage(caseTempValues)
+    averageRfLost = calculateAverage(rfLostValues)
 end
+
+
+-- Function to calculate the average of an array of values
+function calculateAverage(array)
+    local sum = 0
+    for _, value in ipairs(array) do
+        sum = sum + value
+    end
+    return sum / #array
+end
+
+
 
 --Updates statistics and adjusts the rods
 local function compute()
@@ -684,7 +789,7 @@ function routine()
 
         THIS MAKES NO SENSE
         ]]
-        for i = 1,4 do	
+        for i = 1,4 do
             compute()
             sleep(0.01)
         end
@@ -734,7 +839,7 @@ local function initializeVars()
                 calibrated = true
             end
         until response == "y" or response == "n"
-        
+
         maxb = 70
         minb = 30
         rod = 80
@@ -752,11 +857,11 @@ local function initializeVars()
         print("Config file "..tag.." found! Using configurated settings")
 
         calibrated = file.readLine() == "true"
-        
+
         --read calibration information
         if (calibrated) then
-        	capacity = tonumber(file.readLine())
-        	maxRFT = tonumber(file.readLine())
+            capacity = tonumber(file.readLine())
+            maxRFT = tonumber(file.readLine())
         end
         maxb = tonumber(file.readLine())
         minb = tonumber(file.readLine())
@@ -804,7 +909,7 @@ local function initialize()
     if (reactor == nil) then
         reactorSide = getPeripheral("bigger-reactor")
         reactor = peripheral.wrap(reactorSide)
-		reactorVersion = "Big Reactors"
+        reactorVersion = "Big Reactors"
     end
     monSide = getPeripheral("monitor")
     monSide = monSide == "" and nil or monSide
@@ -819,7 +924,7 @@ end
 
 --Entry point
 function threadMain()
-    repeat 
+    repeat
         local good = initialize()
         if (not good) then
             print("Reactor could not be detected! Trying again")
@@ -832,7 +937,7 @@ function threadMain()
     reDrawButtons()
     saveChanges()
     print("Reactor initialization done!")
-	sleep(2)
+    sleep(2)
     term.clear()
     term.setCursorPos(1,1)
     os.startThread(resizer)
@@ -877,14 +982,14 @@ local starting = {}
 local eventFilter = nil
 
 rawset(os, "startThread", function(fn, blockTerminate)
-        table.insert(starting, {
-                cr = coroutine.create(fn),
-                blockTerminate = blockTerminate or false,
-                error = nil,
-                dead = false,
-                filter = nil
-            })
-    end)
+    table.insert(starting, {
+        cr = coroutine.create(fn),
+        blockTerminate = blockTerminate or false,
+        error = nil,
+        dead = false,
+        filter = nil
+    })
+end)
 
 local function tick(t, evt, ...)
     if t.dead then return end
@@ -926,10 +1031,10 @@ local function tickAll()
 end
 
 rawset(os, "setGlobalEventFilter", function(fn)
-        if eventFilter ~= nil then error("This can only be set once!") end
-        eventFilter = fn
-        rawset(os, "setGlobalEventFilter", nil)
-    end)
+    if eventFilter ~= nil then error("This can only be set once!") end
+    eventFilter = fn
+    rawset(os, "setGlobalEventFilter", nil)
+end)
 
 if type(threadMain) == "function" then
     os.startThread(threadMain)
