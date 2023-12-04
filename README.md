@@ -4,9 +4,10 @@ Easily automate your Big/Bigger/Extreme reactor with a pretty graphical UI. <br 
 
 ## Features:
   <bl>
-  <li>One line installer</li>
-  <li>Modular displays</li>
-  <li>Tested recently on Extreme / Bigger Reactors</li>
+  <li>One line installation</li>
+  <li>Modular displays to customize information shown</li>
+  <li>Automatically control your reactor with optional configuration</li>
+  <li>Tested on Extreme, Big, and Bigger Reactors</li>
   </bl>
   
 ## Installation:
@@ -36,6 +37,11 @@ Easily automate your Big/Bigger/Extreme reactor with a pretty graphical UI. <br 
 - If the reactor has a very large max RF/t generation capacity but a low RF/t drain, it may oscillate around the target buffer
   - Workaround: increase the range of the buffer (usefulness will vary)
 - Reactor statistics will be inaccurate for 1-2s of power up
+
+## Future Plans:
+- Turbine support
+- Remote monitoring / control
+- Fully customizable colors
   
 ## Update History:
 Last update: 12/04/2023 <p>
