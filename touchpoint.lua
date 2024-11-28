@@ -24,7 +24,7 @@ THE SOFTWARE.
 Edited by DrunkenKas.
 	See Github: https://github.com/Kasra-G/ReactorController/#readme
 --]]
-version = "1.0"
+local version = "1.01"
 
 local function setupLabel(buttonLen, minY, maxY, name)
 	local labelTable = {}
@@ -182,3 +182,5 @@ function new(monSide)
 	setmetatable(buttonInstance, {__index = Button})
 	return buttonInstance
 end
+
+touchpoint = {new = new}

@@ -1,5 +1,5 @@
 local tag = "reactorConfig"
-version = "0.50"
+local version = "0.51"
 --[[
 Program made by DrunkenKas
 	See github: https://github.com/Kasra-G/ReactorController/#readme
@@ -7,7 +7,7 @@ Program made by DrunkenKas
 The MIT License (MIT)
  
 Copyright (c) 2021 Kasra Ghaffari
- 
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -26,6 +26,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ]]
+
+dofile("/usr/apis/touchpoint.lua")
+
 local reactorType
 local mon, monSide, reactorSide
 local sizex, sizey, dim, oo, offy
@@ -125,26 +128,38 @@ end
 
 --Draws text on the screen
 local function drawText(text, x1, y1, backColor, textColor)
-    if (monSide ~= nil) then
-        local x, y = mon.getCursorPos()
-        mon.setCursorPos(x1, y1)
-        mon.setBackgroundColor(backColor)
-        mon.setTextColor(textColor)
-        mon.write(text)
-        mon.setTextColor(colors.white)
-        mon.setBackgroundColor(colors.black)
-        mon.setCursorPos(x,y)
+    if (monSide == nil) then
+        return
     end
+    local x, y = mon.getCursorPos()
+    mon.setCursorPos(x1, y1)
+    mon.setBackgroundColor(backColor)
+    mon.setTextColor(textColor)
+    mon.write(text)
+    mon.setTextColor(colors.white)
+    mon.setBackgroundColor(colors.black)
+    mon.setCursorPos(x,y)
 end
 
 --Helper method for adding buttons
 local function addButt(name, callBack, size, xoff, yoff, color1, color2)
-    if (monSide ~= nil) then
-        t:add(name, callBack,
-                xoff + 1, yoff + 1,
-                size[1] + xoff, size[2] + yoff,
-                color1, color2)
-    end
+    t:add(name, callBack,
+            xoff + 1, yoff + 1,
+            size[1] + xoff, size[2] + yoff,
+            color1, color2)
+end
+
+local function minAdd10()
+    minb = math.min(maxb - 10, minb + 10)
+end
+local function minSub10()
+    minb = math.max(0, minb - 10)
+end
+local function maxAdd10()
+    maxb = math.min(100, maxb + 10)
+end
+local function maxSub10()
+    maxb = math.max(minb + 10, maxb - 10)
 end
 
 --adds buttons
@@ -152,35 +167,36 @@ local function addButtons()
     if (sizey == 24) then
         oo = 1
     end
-    addButt("On", nil, {8, 3}, dim + 7, 3 + oo,
+    addButt("On", turnOn, {8, 3}, dim + 7, 3 + oo,
             colors.red, colors.lime)
-    addButt("Off", nil, {8, 3}, dim + 19, 3 + oo,
+    addButt("Off", turnOff, {8, 3}, dim + 19, 3 + oo,
             colors.red, colors.lime)
     if (btnOn) then
-        t:toggleButton("On")
+        t:toggleButton("On", true)
     else
-        t:toggleButton("Off")
+        t:toggleButton("Off", true)
     end
     if (sizey > 24) then
-        addButt("+ 10", nil, {8, 3}, dim + 7, 14 + oo,
+        addButt("+ 10", minAdd10, {8, 3}, dim + 7, 14 + oo,
                 colors.purple, colors.pink)
-        addButt(" + 10 ", nil, {8, 3}, dim + 19, 14 + oo,
+        addButt(" + 10 ", maxAdd10, {8, 3}, dim + 19, 14 + oo,
                 colors.magenta, colors.pink)
-        addButt("- 10", nil, {8, 3}, dim + 7, 18 + oo,
+        addButt("- 10", minSub10, {8, 3}, dim + 7, 18 + oo,
                 colors.purple, colors.pink)
-        addButt(" - 10 ", nil, {8, 3}, dim + 19, 18 + oo,
+        addButt(" - 10 ", maxSub10, {8, 3}, dim + 19, 18 + oo,
                 colors.magenta, colors.pink)
     end
 end
 
 --Resets the monitor
 local function resetMon()
-    if (monSide ~= nil) then
-        mon.setBackgroundColor(colors.black)
-        mon.clear()
-        mon.setTextScale(0.5)
-        mon.setCursorPos(1,1)
+    if (monSide == nil) then
+        return
     end
+    mon.setBackgroundColor(colors.black)
+    mon.clear()
+    mon.setTextScale(0.5)
+    mon.setCursorPos(1,1)
 end
 
 local function getPercPower()
@@ -217,6 +233,7 @@ local function format(num)
     end
 end
 
+
 local function getAvailableXOff()
     for i,v in pairs(XOffs) do
         if (v[2] and v[1] < dim) then
@@ -236,45 +253,6 @@ local function getXOff(num)
     return nil
 end
 
-local function disableGraph(name)
-    if (graphsToDraw[name] ~= nil) then
-        if (displayingGraphMenu) then
-            t:toggleButton(name)
-        end
-        getXOff(graphsToDraw[name])[2] = true
-        graphsToDraw[name] = nil
-    end
-end
-
-local function addGraphButtons()
-    offy = oo - 14
-    for i,v in pairs(graphs) do
-        addButt(v, nil, {20, 3},
-                dim + 7, offy + i * 3 - 1,
-                colors.red, colors.lime)
-        if (graphsToDraw[v] ~= nil) then
-            t:toggleButton(v)
-        end
-    end
-end
-
-local function drawGraphButtons()
-    drawBox({sizex - dim - 3, oo - offy - 1},
-            dim + 2, offy, colors.orange)
-    drawText(" Graph Controls ",
-            dim + 7, offy + 1,
-            colors.black, colors.orange)
-end
-
-local function isGraph(name)
-    for i,v in pairs(graphs) do
-        if (v == name) then
-            return true
-        end
-    end
-    return false
-end
-
 local function getGraph(num)
     for i,v in pairs(graphsToDraw) do
         if (v == num) then
@@ -285,15 +263,27 @@ local function getGraph(num)
 end
 
 local function enableGraph(name)
-    if (graphsToDraw[name] == nil) then
-        local e = getAvailableXOff()
-        if (e ~= -1) then
-            graphsToDraw[name] = e
-            if (displayingGraphMenu) then
-                t:toggleButton(name)
-            end
+    if (graphsToDraw[name] ~= nil) then
+        return
+    end
+    local e = getAvailableXOff()
+    if (e ~= -1) then
+        graphsToDraw[name] = e
+        if (displayingGraphMenu) then
+            t:toggleButton(name)
         end
     end
+end
+
+local function disableGraph(name)
+    if (graphsToDraw[name] == nil) then
+        return
+    end
+    if (displayingGraphMenu) then
+        t:toggleButton(name)
+    end
+    getXOff(graphsToDraw[name])[2] = true
+    graphsToDraw[name] = nil
 end
 
 local function toggleGraph(name)
@@ -302,6 +292,26 @@ local function toggleGraph(name)
     else
         disableGraph(name)
     end
+end
+
+local function addGraphButtons()
+    offy = oo - 14
+    for i,v in pairs(graphs) do
+        addButt(v, function() toggleGraph(v) end, {20, 3},
+                dim + 7, offy + i * 3 - 1,
+                colors.red, colors.lime)
+        if (graphsToDraw[v] ~= nil) then
+            t:toggleButton(v, true)
+        end
+    end
+end
+
+local function drawGraphButtons()
+    drawBox({sizex - dim - 3, oo - offy - 1},
+            dim + 2, offy, colors.orange)
+    drawText(" Graph Controls ",
+            dim + 7, offy + 1,
+            colors.black, colors.orange)
 end
 
 local function drawEnergyBuffer(xoff)
@@ -499,55 +509,67 @@ end
 
 --Draw a scene
 local function drawScene()
-    if (monSide ~= nil) then
-        t:draw()
+    if (monSide == nil) then
+        return
     end
+    if (invalidDim) then
+        mon.write("Invalid Monitor Dimensions")
+        return
+    end
+
     if (displayingGraphMenu) then
         drawGraphButtons()
     end
-    if (invalidDim) then
-        if (monSide ~= nil) then
-            mon.write("Invalid Monitor Dimensions")
+    drawControls()
+    drawStatus()
+    drawStatistics()
+    t:draw()
+end
+
+--returns the side that a given peripheral type is connected to
+local function getPeripheral(name)
+    for i,v in pairs(peripheral.getNames()) do
+        if (peripheral.getType(v) == name) then
+            return v
         end
-    else
-        drawControls()
-        drawStatus()
-        drawStatistics()
     end
+    return ""
 end
 
 --Redraws all the buttons
 --Updates the important values
-local function reDrawButtons()
-    if (monSide ~= nil) then
-        t = touchpoint.new(monSide)
-        sizex, sizey = mon.getSize()
-        oo = sizey - 37
-        dim = sizex - 33
+local function initMon()
+    monSide = getPeripheral("monitor")
+    if (monSide == nil or monSide == "") then
+        monSide = nil
+        return
     end
+    
+    mon = peripheral.wrap(monSide)
+
+    resetMon()
+    t = touchpoint.new(monSide)
+    sizex, sizey = mon.getSize()
+    oo = sizey - 37
+    dim = sizex - 33
+    
     --print(sizex, sizey)
     if (sizex == 36) then
         dim = -1
     end
     if (pcall(addGraphButtons)) then
-        drawGraphButtons()
         displayingGraphMenu = true
     else
-        if (monSide ~= nil) then
-            t = touchpoint.new(monSide)
-        end
+        t = touchpoint.new(monSide)
         displayingGraphMenu = false
     end
     local rtn = pcall(addButtons)
     if (not rtn) then
-        if (monSide ~= nil) then
-            t = touchpoint.new(monSide)
-        end
+        t = touchpoint.new(monSide)
         invalidDim = true
     else
         invalidDim = false
     end
-    --t:draw()
 end
 
 local function setRods(level)
@@ -622,13 +644,13 @@ end
 local function adjustRods()
     local currentRF = storedThisTick
     local diffb = maxb - minb
-    maxRF = maxb / 100 * capacity
-    minRF = minb / 100 * capacity
-    diffRF = diffb / 100 * capacity
+    local maxRF = maxb / 100 * capacity
+    local minRF = minb / 100 * capacity
+    local diffRF = diffb / 100 * capacity
     local diffr = diffb / 100
     local targetRFT = rfLost
     local currentRFT = lastRFT
-    local diffRFT = currentRFT/targetRFT
+    local diffRFT = currentRFT / targetRFT
     local targetRF = diffRF / 2 + minRF
 
     pid.setpointRFT = targetRFT
@@ -652,35 +674,24 @@ local function adjustRods()
 end
 
 --Saves the configuration of the reactor controller
-local function saveChanges()
-    local file = fs.open(tag..".txt", "w")
-    file.writeLine(calibrated)
-    if (calibrated) then
-        file.writeLine(capacity)
-        file.writeLine(maxRFT)
-    end
-    file.writeLine(maxb)
-    file.writeLine(minb)
-    file.writeLine(rod)
-    file.writeLine(btnOn)
-    for i,v in pairs(XOffs) do
-        local graph = getGraph(v[1])
-        graph = (graph == nil and "nil" or graph)
-        file.writeLine(graph)
-        file.writeLine(v[1])
-    end
+local function saveToConfig()
+    local file = fs.open(tag.."Serialized.txt", "w")
+    local configs = {
+        calibrated = calibrated,
+        capacity = capacity,
+        maxRFT = maxRFT,
+        maxb = maxb,
+        minb = minb,
+        rod = rod,
+        btnOn = btnOn,
+        graphsToDraw = graphsToDraw,
+        XOffs = XOffs,
+    }
+    local serialized = textutils.serialize(configs)
+    file.write(serialized)
     file.close()
 end
 
---returns the side that a given peripheral type is connected to
-local function getPeripheral(name)
-    for i,v in pairs(peripheral.getNames()) do
-        if (peripheral.getType(v) == name) then
-            return v
-        end
-    end
-    return ""
-end
 local storedThisTickValues = {}
 local lastRFTValues = {}
 local rodValues = {}
@@ -766,96 +777,29 @@ function calculateAverage(array)
     return sum / #array
 end
 
-
-
---Updates statistics and adjusts the rods
-local function compute()
-    updateStats()
-    if (btnOn) then
-        adjustRods()
-    end
-end
-
---The main routine that runs each tick
-function routine()
-    while (true) do
-        --[[
-        If the graphs are drawn every tick, everything
-        just breaks.
-        If the graphs are drawn every 2nd tick, my
-        RFLost calculation is wrong every time
-        If the graphs are drawn every 3rd tick, my
-        RFLost calculation is wrong sometimes
-
-        THIS MAKES NO SENSE
-        ]]
-        for i = 1,4 do
-            compute()
-            sleep(0.01)
-        end
-        resetMon()
-        drawScene()
-    end
-end
-
---Manages window resizing events
-function resizer()
-    while (true) do
-        local event = os.pullEvent("monitor_resize")
-        if (event == "monitor_resize") then
-            reDrawButtons()
-        end
-    end
-end
-
-local function calibrate()
-    setRods(0)
-    reactor.setActive(true)
-    sleep(15)
-    updateStats()
-    setRods(100)
-    reactor.setActive(false)
-    if (reactorVersion == "Big Reactors") then
-        capacity = storedThisTick
-    end
-    maxRFT = lastRFT
-end
-
 --Initialize variables from either a config file or the defaults
-local function initializeVars()
+local function loadFromConfig()
     invalidDim = false
-    if (not fs.exists(tag..".txt")) then
-        print("Config file "..tag.." not found, generating a default one!")
-        repeat
-            print("The program can be optionally calibrated. Proceed? (y/n) ")
-            local response = read()
-            if (response == "n") then
-                print("Calibration skipped. Some functions may be unavailable")
-                calbrated = false
-            elseif (response == "y") then
-                print("Beginning 15 second calibration, do not turn off the reactor!")
-                calibrate()
-                print("Calibrated!")
-                calibrated = true
-            end
-        until response == "y" or response == "n"
+    local legacyConfigExists = fs.exists(tag..".txt")
+    local newConfigExists = fs.exists(tag.."Serialized.txt")
+    if (newConfigExists) then
+        local file = fs.open(tag.."Serialized.txt", "r")
+        print("Config file "..tag.."Serialized.txt found! Using configurated settings")
 
-        maxb = 70
-        minb = 30
-        rod = 80
-        btnOn = false
-        if (monSide == nil) then
-            btnOn = true
-        end
-        dim = sizex - 33
-        oo = sizey - 37
-        enableGraph("Energy Buffer")
-        enableGraph("Control Level")
-        enableGraph("Temperatures")
-    else
+        serialized = file.readAll()
+        deserialized = textutils.unserialise(serialized)
+        
+        calibrated = deserialized.calibrated
+        capacity = deserialized.capacity
+        maxRFT = deserialized.maxRFT
+        maxb = deserialized.maxb
+        minb = deserialized.minb
+        rod = deserialized.rod
+        btnOn = deserialized.btnOn
+        graphsToDraw = deserialized.graphsToDraw
+        XOffs = deserialized.XOffs
+    elseif (legacyConfigExists) then
         local file = fs.open(tag..".txt", "r")
-        print("Config file "..tag.." found! Using configurated settings")
-
         calibrated = file.readLine() == "true"
 
         --read calibration information
@@ -882,10 +826,69 @@ local function initializeVars()
 
         end
         file.close()
+    else
+        print("Config file not found, generating default settings!")
+
+        maxb = 70
+        minb = 30
+        rod = 80
+        btnOn = false
+        if (monSide == nil) then
+            btnOn = true
+        end
+        sizex, sizey = 100, 52
+        dim = sizex - 33
+        oo = sizey - 37
+        enableGraph("Energy Buffer")
+        enableGraph("Control Level")
+        enableGraph("Temperatures")
     end
     btnOff = not btnOn
     diffb = maxb - minb
     reactor.setActive(btnOn)
+end
+
+local function loop()
+    local ticksToUpdateStats = 1
+    local ticksToRedraw = 4
+
+    local timeToUpdateStats = ticksToUpdateStats * 0.05
+    local timeToRedraw = ticksToRedraw * 0.05
+
+    local ID_UPDATE_STATS = os.startTimer(timeToUpdateStats)
+    local ID_REDRAW = os.startTimer(timeToRedraw)
+    local hasClicked = false
+    while (true) do
+        local e
+        if (monSide == nil) then
+            e = { os.pullEvent() }
+        else
+            e = { t:handleEvents()}
+        end
+
+        if (e[1] == "timer" and e[2] == ID_UPDATE_STATS) then
+            ID_UPDATE_STATS = os.startTimer(timeToUpdateStats)
+            updateStats()
+            if (btnOn) then
+                adjustRods()
+            end
+        elseif (e[1] == "timer" and e[2] == ID_REDRAW) then
+            ID_REDRAW = os.startTimer(timeToRedraw)
+            if (not hasClicked) then
+                resetMon()
+                drawScene()
+            end
+            hasClicked = false
+        elseif (e[1] == "monitor_resize") then
+            initMon()
+        elseif (e[1] == "button_click") then
+			t.buttonList[e[2]].func()
+            saveToConfig()
+            resetMon()
+            drawScene()
+            hasClicked = true
+        end
+    end
 end
 
 --Initialize program
@@ -893,7 +896,6 @@ local function initialize()
     term.setBackgroundColor(colors.black)
     term.clear()
     term.setCursorPos(1,1)
-    os.loadAPI("/usr/apis/touchpoint.lua")
     reactorSide = getPeripheral("BiggerReactors_Reactor")
     reactorVersion = "Bigger Reactors"
     reactor = peripheral.wrap(reactorSide)
@@ -911,19 +913,12 @@ local function initialize()
         reactor = peripheral.wrap(reactorSide)
         reactorVersion = "Big Reactors"
     end
-    monSide = getPeripheral("monitor")
-    monSide = monSide == "" and nil or monSide
-    sizex, sizey = 36, 38
-    if (monSide ~= nil) then
-        mon = peripheral.wrap(monSide)
-        sizex, sizey = mon.getSize()
-        resetMon()
-    end
     return reactor ~= nil
 end
 
+
 --Entry point
-function threadMain()
+function main()
     repeat
         local good = initialize()
         if (not good) then
@@ -933,118 +928,21 @@ function threadMain()
             print("Reactor detected! Proceeding with initialization: ")
         end
     until (good)
-    initializeVars()
-    reDrawButtons()
-    saveChanges()
+    loadFromConfig()
+    initMon()
+    saveToConfig()
     print("Reactor initialization done!")
     sleep(2)
     term.clear()
     term.setCursorPos(1,1)
-    os.startThread(resizer)
-    os.startThread(routine)
     print("Reactor Controller Version "..version)
     print("Reactor Mod: "..reactorVersion)
     --main loop
-    --local lastTime = 0
 
-    os.startTimer(0.01)
-    while (true) do
-        local event, p1
-        if (monSide ~= nil) then
-            event, p1 = t:handleEvents(os.pullEvent("monitor_touch"))
-        else
-            event = os.pullEvent("monitor_touch")
-        end
-        if (event == "button_click") then
-            if (p1 == "Off") then
-                turnOff()
-            elseif (p1 == "On") then
-                turnOn()
-            elseif (p1 == "+ 10") then
-                minb = math.min(maxb - 10, minb + 10)
-            elseif (p1 == "- 10") then
-                minb = math.max(0, minb - 10)
-            elseif (p1 == " + 10 ") then
-                maxb = math.min(100, maxb + 10)
-            elseif (p1 == " - 10 ") then
-                maxb = math.max(minb + 10, maxb - 10)
-            elseif (isGraph(p1)) then
-                toggleGraph(p1)
-            end
-            saveChanges()
-        end
-    end
+    loop()
 end
 
---thread stuff below here
-local threads = {}
-local starting = {}
-local eventFilter = nil
+main()
 
-rawset(os, "startThread", function(fn, blockTerminate)
-    table.insert(starting, {
-        cr = coroutine.create(fn),
-        blockTerminate = blockTerminate or false,
-        error = nil,
-        dead = false,
-        filter = nil
-    })
-end)
-
-local function tick(t, evt, ...)
-    if t.dead then return end
-    if t.filter ~= nil and evt ~= t.filter then return end
-    if evt == "terminate" and t.blockTerminate then return end
-
-    coroutine.resume(t.cr, evt, ...)
-    t.dead = (coroutine.status(t.cr) == "dead")
-end
-
-local function tickAll()
-    if #starting > 0 then
-        local clone = starting
-        starting = {}
-        for _,v in ipairs(clone) do
-            tick(v)
-            table.insert(threads, v)
-        end
-    end
-    local e
-    if eventFilter then
-        e = {eventFilter(coroutine.yield())}
-    else
-        e = {coroutine.yield()}
-    end
-    local dead = nil
-    for k,v in ipairs(threads) do
-        tick(v, unpack(e))
-        if v.dead then
-            if dead == nil then dead = {} end
-            table.insert(dead, k - #dead)
-        end
-    end
-    if dead ~= nil then
-        for _,v in ipairs(dead) do
-            table.remove(threads, v)
-        end
-    end
-end
-
-rawset(os, "setGlobalEventFilter", function(fn)
-    if eventFilter ~= nil then error("This can only be set once!") end
-    eventFilter = fn
-    rawset(os, "setGlobalEventFilter", nil)
-end)
-
-if type(threadMain) == "function" then
-    os.startThread(threadMain)
-else
-    os.startThread(function() shell.run("shell") end)
-end
-
-while #threads > 0 or #starting > 0 do
-    tickAll()
-end
-
-print("All threads terminated!")
-print("Exiting thread manager")
+print("script exited")
+sleep(1)

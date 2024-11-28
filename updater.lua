@@ -11,7 +11,7 @@ local filesToUpdate = {
 
 function getFile(fileName, link)
   
-  local file = http.get("http://pastebin.com/raw.php?i=" .. textutils.urlEncode(link))
+  local file = http.get("https://pastebin.com/raw/" .. textutils.urlEncode(link))
   
   if file then
     
