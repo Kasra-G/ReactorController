@@ -16,14 +16,12 @@ https://gitlab.com/seekerscomputercraft/extremereactorcontrol/
 
 I do want to eventually add turbine support, but it will take me some time to implement it, make sure the changes are backwards compatible, and then create the UI for it. I also work full time now, so time is much more sparse.
 ## Installation
-  To install, place and connect an Advanced Computer to a valid Reactor's Computer Port, <br />
-    either with wired modems or directly on it. Then, follow these steps:
   <ol>
     <li>
       Connect an Advanced Computer directly to a reactor or via wired modem network
     </li>
     <li>
-      Optionally connect a monitor directly to the computer or via wired modem network
+      Optionally, you can connect a monitor. Connect it directly to the computer or via wired modem network
     </li>
     <li>
        Make sure that all modems are activated
@@ -49,7 +47,7 @@ I do want to eventually add turbine support, but it will take me some time to im
 ## Known Issues
 - If the reactor has a very large max RF/t generation capacity but a low RF/t drain, it may oscillate around the target buffer. This is partly due to my inexperience with setting PID constants, so any help here would be appreciated.
   - Workaround: increase the range of the buffer, YMMV
-- Sometimes, the RF/t Drain statistic will fluctuate wildly. I don't think this is caused by the program, but in singleplayer, the issue seems start when directly interacting with the reactor UI, and seems to get better by relogging.
+- Sometimes, the RF/t Drain statistic will fluctuate wildly. I don't think this is caused by the program, but in singleplayer, the issue seems to start when directly interacting with the reactor UI, and seems to get better by relogging.
 
 ## Future Plans
 - Turbine support
