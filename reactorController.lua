@@ -1,5 +1,5 @@
-local tag = "reactorConfig"
 local version = "0.51"
+local tag = "reactorConfig"
 --[[
 Program made by DrunkenKas
 	See github: https://github.com/Kasra-G/ReactorController/#readme
@@ -29,17 +29,16 @@ THE SOFTWARE.
 
 dofile("/usr/apis/touchpoint.lua")
 
-local reactorType
-local mon, monSide, reactorSide
+local reactorVersion, reactor
+local mon, monSide
 local sizex, sizey, dim, oo, offy
 local btnOn, btnOff, invalidDim
-local minb, maxb, minrod
+local minb, maxb
 local rod, rfLost
-local storedLastTick, storedThisTick, lastRFT, maxRFT = 0,0,0,1
-local fuelTemp, caseTemp, fuelUsage, waste, capacity = 0,0,0,0,0
+local storedLastTick, storedThisTick, lastRFT = 0,0,0
+local fuelTemp, caseTemp, fuelUsage, waste, capacity = 0,0,0,0,1
 local t
 local displayingGraphMenu = false
-local calibrated = false
 
 local secondsToAverage = 2
 
@@ -52,10 +51,10 @@ local averageFuelTemp = 0
 local averageCaseTemp = 0
 local averageRfLost = 0
 
---table of which graphs to draw
+-- table of which graphs to draw
 local graphsToDraw = {}
 
---table of all the graphs
+-- table of all the graphs
 local graphs =
 {
     "Energy Buffer",
@@ -63,7 +62,8 @@ local graphs =
     "Temperatures",
 }
 
---marks the offsets for each graph position
+-- marks the offsets for each graph position
+-- { XOffset, <is_available> }
 local XOffs =
 {
     { 4, true},
@@ -73,57 +73,45 @@ local XOffs =
     {96, true},
 }
 
---Draw a single point
-local function drawPoint(x, y, color)
-    if (monSide ~= nil) then
-        local ix,iy = mon.getCursorPos()
-        mon.setCursorPos(x,y)
-        mon.setBackgroundColor(color)
-        mon.write(" ")
-        mon.setBackgroundColor(colors.black)
-        mon.setCursorPos(ix,iy)
-    end
-end
-
---Draw a box with no fill
+-- Draw a box with no fill
 local function drawBox(size, xoff, yoff, color)
-    if (monSide ~= nil) then
-        local x,y = mon.getCursorPos()
-        mon.setBackgroundColor(color)
-        for i=0,size[1] - 1 do
-            mon.setCursorPos(xoff + i + 1, yoff + 1)
-            mon.write(" ")
-            mon.setCursorPos(xoff + i + 1, yoff + size[2])
-            mon.write(" ")
-        end
-        for i=0, size[2] - 1 do
-            mon.setCursorPos(xoff + 1, yoff + i + 1)
-            mon.write(" ")
-            mon.setCursorPos(xoff + size[1], yoff + i +1)
-            mon.write(" ")
-        end
-        mon.setCursorPos(x,y)
-        mon.setBackgroundColor(colors.black)
+    if (monSide == nil) then
+        return
     end
+    local x,y = mon.getCursorPos()
+    mon.setBackgroundColor(color)
+    local horizLine = string.rep(" ", size[1])
+    mon.setCursorPos(xoff + 1, yoff + 1)
+    mon.write(horizLine)
+    mon.setCursorPos(xoff + 1, yoff + size[2])
+    mon.write(horizLine)
+
+    -- Draw vertical lines
+    for i=0, size[2] - 1 do
+        mon.setCursorPos(xoff + 1, yoff + i + 1)
+        mon.write(" ")
+        mon.setCursorPos(xoff + size[1], yoff + i +1)
+        mon.write(" ")
+    end
+    mon.setCursorPos(x,y)
+    mon.setBackgroundColor(colors.black)
 end
 
 --Draw a filled box
 local function drawFilledBox(size, xoff, yoff, colorOut, colorIn)
-    if (monSide ~= nil) then
-        local horizLine = ""
-        for i=2, size[1] - 1 do
-            horizLine  = horizLine.." "
-        end
-        drawBox(size, xoff, yoff, colorOut)
-        local x,y = mon.getCursorPos()
-        mon.setBackgroundColor(colorIn)
-        for i=2, size[2] - 1 do
-            mon.setCursorPos(xoff + 2, yoff + i)
-            mon.write(horizLine)
-        end
-        mon.setBackgroundColor(colors.black)
-        mon.setCursorPos(x,y)
+    if (monSide == nil) then
+        return
     end
+    local horizLine = string.rep(" ", size[1] - 2)
+    drawBox(size, xoff, yoff, colorOut)
+    local x,y = mon.getCursorPos()
+    mon.setBackgroundColor(colorIn)
+    for i=2, size[2] - 1 do
+        mon.setCursorPos(xoff + 2, yoff + i)
+        mon.write(horizLine)
+    end
+    mon.setBackgroundColor(colors.black)
+    mon.setCursorPos(x,y)
 end
 
 --Draws text on the screen
@@ -160,6 +148,26 @@ local function maxAdd10()
 end
 local function maxSub10()
     maxb = math.max(minb + 10, maxb - 10)
+end
+
+local function turnOff()
+    if (btnOn) then
+        t:toggleButton("Off")
+        t:toggleButton("On")
+        btnOff = true
+        btnOn = false
+        reactor.setActive(false)
+    end
+end
+
+local function turnOn()
+    if (btnOff) then
+        t:toggleButton("Off")
+        t:toggleButton("On")
+        btnOff = false
+        btnOn = true
+        reactor.setActive(true)
+    end
 end
 
 --adds buttons
@@ -211,10 +219,6 @@ local function getEfficiency()
     return averageLastRFT / averageFuelUsage
 end
 
-local function getGenRatio()
-    return lastRFT / capacity
-end
-
 local function format(num)
     if (num >= 1000000000) then
         return string.format("%7.3f G", num / 1000000000)
@@ -248,15 +252,6 @@ local function getXOff(num)
     for i,v in pairs(XOffs) do
         if (v[1] == num) then
             return v
-        end
-    end
-    return nil
-end
-
-local function getGraph(num)
-    for i,v in pairs(graphsToDraw) do
-        if (v == num) then
-            return i
         end
     end
     return nil
@@ -413,7 +408,6 @@ local function drawTemperatures(xoff)
             colors.gray)
 end
 
-local beg
 local function drawGraph(name, offset)
     if (name == "Energy Buffer") then
         drawEnergyBuffer(offset)
@@ -433,13 +427,14 @@ local function drawGraphs()
 end
 
 local function drawStatus()
-    if (dim > -1) then
-        drawBox({dim, sizey - 2},
-                1, 1, colors.lightBlue)
-        drawText(" Reactor Graphs ", dim - 18, 2,
-                colors.black, colors.lightBlue)
-        drawGraphs()
+    if (dim <= -1) then
+        return
     end
+    drawBox({dim, sizey - 2},
+            1, 1, colors.lightBlue)
+    drawText(" Reactor Graphs ", dim - 18, 2,
+            colors.black, colors.lightBlue)
+    drawGraphs()
 end
 
 local function drawControls()
@@ -451,30 +446,31 @@ local function drawControls()
         drawText("Reactor "..(btnOn and "Online" or "Offline"),
                 dim + 10, 3 + oo,
                 colors.black, btnOn and colors.green or colors.red)
-    else
-        drawBox({sizex - dim - 3, 23}, dim + 2, oo,
-                colors.cyan)
-        drawText(" Reactor Controls ", dim + 7, oo + 1,
-                colors.black, colors.cyan)
-        drawFilledBox({20, 3}, dim + 7, 8 + oo,
-                colors.red, colors.red)
-        drawFilledBox({(maxb - minb) / 5, 3},
-                dim + 7 + minb / 5, 8 + oo,
-                colors.green, colors.green)
-        drawText(string.format("%3s", minb.."%"), dim + 6 + minb / 5, 12 + oo,
-                colors.black, colors.purple)
-        drawText(maxb.."%", dim + 8 + maxb / 5, 12 + oo,
-                colors.black, colors.magenta)
-        drawText("Buffer Target Range", dim + 8, 8 + oo,
-                colors.black, colors.orange)
-        drawText("Min", dim + 10, 14 + oo,
-                colors.black, colors.purple)
-        drawText("Max", dim + 22, 14 + oo,
-                colors.black, colors.magenta)
-        drawText("Reactor ".. (btnOn and "Online" or "Offline"),
-                dim + 10, 3 + oo,
-                colors.black, btnOn and colors.green or colors.red)
+        return
     end
+
+    drawBox({sizex - dim - 3, 23}, dim + 2, oo,
+            colors.cyan)
+    drawText(" Reactor Controls ", dim + 7, oo + 1,
+            colors.black, colors.cyan)
+    drawFilledBox({20, 3}, dim + 7, 8 + oo,
+            colors.red, colors.red)
+    drawFilledBox({(maxb - minb) / 5, 3},
+            dim + 7 + minb / 5, 8 + oo,
+            colors.green, colors.green)
+    drawText(string.format("%3s", minb.."%"), dim + 6 + minb / 5, 12 + oo,
+            colors.black, colors.purple)
+    drawText(maxb.."%", dim + 8 + maxb / 5, 12 + oo,
+            colors.black, colors.magenta)
+    drawText("Buffer Target Range", dim + 8, 8 + oo,
+            colors.black, colors.orange)
+    drawText("Min", dim + 10, 14 + oo,
+            colors.black, colors.purple)
+    drawText("Max", dim + 22, 14 + oo,
+            colors.black, colors.magenta)
+    drawText("Reactor ".. (btnOn and "Online" or "Offline"),
+            dim + 10, 3 + oo,
+            colors.black, btnOn and colors.green or colors.red)
 end
 
 local function drawStatistics()
@@ -536,15 +532,14 @@ local function getPeripheral(name)
     return ""
 end
 
---Redraws all the buttons
---Updates the important values
+--Creates all the buttons and determines monitor size
 local function initMon()
     monSide = getPeripheral("monitor")
     if (monSide == nil or monSide == "") then
         monSide = nil
         return
     end
-    
+
     mon = peripheral.wrap(monSide)
 
     resetMon()
@@ -552,8 +547,7 @@ local function initMon()
     sizex, sizey = mon.getSize()
     oo = sizey - 37
     dim = sizex - 33
-    
-    --print(sizex, sizey)
+
     if (sizex == 36) then
         dim = -1
     end
@@ -578,30 +572,7 @@ local function setRods(level)
     reactor.setAllControlRodLevels(level)
 end
 
---Turns off the reactor
-local function turnOff()
-    if (btnOn) then
-        t:toggleButton("Off")
-        t:toggleButton("On")
-        btnOff = true
-        btnOn = false
-        setRods(100)
-        reactor.setActive(false)
-    end
-end
-
---Turns on the reactor
-local function turnOn()
-    if (btnOff) then
-        t:toggleButton("Off")
-        t:toggleButton("On")
-        btnOff = false
-        btnOn = true
-        reactor.setActive(true)
-    end
-end
-
-function lerp(start, finish, t)
+local function lerp(start, finish, t)
     -- Ensure t is in the range [0, 1]
     t = math.max(0, math.min(1, t))
 
@@ -609,6 +580,14 @@ function lerp(start, finish, t)
     return (1 - t) * start + t * finish
 end
 
+-- Function to calculate the average of an array of values
+local function calculateAverage(array)
+    local sum = 0
+    for _, value in ipairs(array) do
+        sum = sum + value
+    end
+    return sum / #array
+end
 
 -- Define PID controller parameters
 local pid = {
@@ -640,17 +619,17 @@ local function iteratePID(pid, error)
     return rodLevel
 end
 
---adjusts the level of the rods
-local function adjustRods()
+local function updateRods()
+    if (not btnOn) then
+        return
+    end
     local currentRF = storedThisTick
     local diffb = maxb - minb
-    local maxRF = maxb / 100 * capacity
     local minRF = minb / 100 * capacity
     local diffRF = diffb / 100 * capacity
     local diffr = diffb / 100
     local targetRFT = rfLost
     local currentRFT = lastRFT
-    local diffRFT = currentRFT / targetRFT
     local targetRF = diffRF / 2 + minRF
 
     pid.setpointRFT = targetRFT
@@ -673,13 +652,10 @@ local function adjustRods()
     setRods(rftRodLevel)
 end
 
---Saves the configuration of the reactor controller
+-- Saves the configuration of the reactor controller
 local function saveToConfig()
     local file = fs.open(tag.."Serialized.txt", "w")
     local configs = {
-        calibrated = calibrated,
-        capacity = capacity,
-        maxRFT = maxRFT,
         maxb = maxb,
         minb = minb,
         rod = rod,
@@ -711,6 +687,8 @@ local function updateStats()
         waste = reactor.getWasteAmount()
         fuelTemp = reactor.getFuelTemperature()
         caseTemp = reactor.getCasingTemperature()
+        -- Big Reactors doesn't give us a way to directly query RF capacity through CC APIs
+        capacity = math.max(capacity, reactor.getEnergyStored)
     elseif (reactorVersion == "Extreme Reactors") then
         local bat = reactor.getEnergyStats()
         local fuel = reactor.getFuelStats()
@@ -767,16 +745,6 @@ local function updateStats()
     averageRfLost = calculateAverage(rfLostValues)
 end
 
-
--- Function to calculate the average of an array of values
-function calculateAverage(array)
-    local sum = 0
-    for _, value in ipairs(array) do
-        sum = sum + value
-    end
-    return sum / #array
-end
-
 --Initialize variables from either a config file or the defaults
 local function loadFromConfig()
     invalidDim = false
@@ -786,12 +754,9 @@ local function loadFromConfig()
         local file = fs.open(tag.."Serialized.txt", "r")
         print("Config file "..tag.."Serialized.txt found! Using configurated settings")
 
-        serialized = file.readAll()
-        deserialized = textutils.unserialise(serialized)
+        local serialized = file.readAll()
+        local deserialized = textutils.unserialise(serialized)
         
-        calibrated = deserialized.calibrated
-        capacity = deserialized.capacity
-        maxRFT = deserialized.maxRFT
         maxb = deserialized.maxb
         minb = deserialized.minb
         rod = deserialized.rod
@@ -800,12 +765,12 @@ local function loadFromConfig()
         XOffs = deserialized.XOffs
     elseif (legacyConfigExists) then
         local file = fs.open(tag..".txt", "r")
-        calibrated = file.readLine() == "true"
+        local calibrated = file.readLine() == "true"
 
         --read calibration information
         if (calibrated) then
-            capacity = tonumber(file.readLine())
-            maxRFT = tonumber(file.readLine())
+            _ = tonumber(file.readLine())
+            _ = tonumber(file.readLine())
         end
         maxb = tonumber(file.readLine())
         minb = tonumber(file.readLine())
@@ -844,95 +809,123 @@ local function loadFromConfig()
         enableGraph("Temperatures")
     end
     btnOff = not btnOn
-    diffb = maxb - minb
     reactor.setActive(btnOn)
 end
 
+local function startTimer(ticksToUpdate, callback)
+    local timeToUpdate = ticksToUpdate * 0.05
+    local id = os.startTimer(timeToUpdate)
+    local fun = function(event)
+        if (event[1] == "timer" and event[2] == id) then
+            id = os.startTimer(timeToUpdate)
+            callback()
+        end
+    end
+    return fun
+end
+
+
+-- Main loop, handles all the events
 local function loop()
     local ticksToUpdateStats = 1
     local ticksToRedraw = 4
-
-    local timeToUpdateStats = ticksToUpdateStats * 0.05
-    local timeToRedraw = ticksToRedraw * 0.05
-
-    local ID_UPDATE_STATS = os.startTimer(timeToUpdateStats)
-    local ID_REDRAW = os.startTimer(timeToRedraw)
+    
     local hasClicked = false
-    while (true) do
-        local e
-        if (monSide == nil) then
-            e = { os.pullEvent() }
-        else
-            e = { t:handleEvents()}
-        end
 
-        if (e[1] == "timer" and e[2] == ID_UPDATE_STATS) then
-            ID_UPDATE_STATS = os.startTimer(timeToUpdateStats)
+    local updateStatsTick = startTimer(
+        ticksToUpdateStats,
+        function()
             updateStats()
-            if (btnOn) then
-                adjustRods()
-            end
-        elseif (e[1] == "timer" and e[2] == ID_REDRAW) then
-            ID_REDRAW = os.startTimer(timeToRedraw)
+            updateRods()
+        end
+    )
+    local redrawTick = startTimer(
+        ticksToRedraw,
+        function()
             if (not hasClicked) then
                 resetMon()
                 drawScene()
             end
             hasClicked = false
-        elseif (e[1] == "monitor_resize") then
+        end
+    )
+    local handleResize = function(event)
+        if (event[1] == "monitor_resize") then
             initMon()
-        elseif (e[1] == "button_click") then
-			t.buttonList[e[2]].func()
+        end
+    end
+    local handleClick = function(event)
+        if (event[1] == "button_click") then
+			t.buttonList[event[2]].func()
             saveToConfig()
             resetMon()
             drawScene()
             hasClicked = true
         end
     end
+    while (true) do
+        local event = (monSide == nil) and { os.pullEvent() } or { t:handleEvents() }
+
+        updateStatsTick(event)
+        redrawTick(event)
+        handleResize(event)
+        handleClick(event)
+    end
 end
 
---Initialize program
-local function initialize()
+local function detectReactor()
+    -- Bigger Reactors V1.
+    local reactor_bigger_v1 = getPeripheral("bigger-reactor")
+    reactor = reactor_bigger_v1 ~= nil and peripheral.wrap(reactor_bigger_v1)
+    if (reactor ~= nil) then
+        reactorVersion = "Bigger Reactors"
+        return true
+    end
+
+    -- Bigger Reactors V2
+    local reactor_bigger_v2 = getPeripheral("BiggerReactors_Reactor")
+    reactor = reactor_bigger_v2 ~= nil and peripheral.wrap(reactor_bigger_v2)
+    if (reactor ~= nil) then
+        reactorVersion = "Bigger Reactors"
+        return true
+    end
+
+    -- Big Reactors or Extreme Reactors
+    local reactor_extreme_or_big = getPeripheral("BigReactors-Reactor")
+    reactor = reactor_extreme_or_big ~= nil and peripheral.wrap(reactor_extreme_or_big)
+    if (reactor ~= nil) then
+        reactorVersion = (reactor.mbIsConnected ~= nil) and "Extreme Reactors" or "Big Reactors"
+        return true
+    end
+    return false
+end
+
+--Entry point
+local function main()
     term.setBackgroundColor(colors.black)
     term.clear()
     term.setCursorPos(1,1)
-    reactorSide = getPeripheral("BiggerReactors_Reactor")
-    reactorVersion = "Bigger Reactors"
-    reactor = peripheral.wrap(reactorSide)
-    if (reactor == nil) then
-        reactorSide = getPeripheral("BigReactors-Reactor")
-        reactor = peripheral.wrap(reactorSide)
-        if (reactor.mbIsConnected ~= nil) then
-            reactorVersion = "Extreme Reactors"
-        else
-            reactorVersion = "Big Reactors"
-        end
-    end
-    if (reactor == nil) then
-        reactorSide = getPeripheral("bigger-reactor")
-        reactor = peripheral.wrap(reactorSide)
-        reactorVersion = "Big Reactors"
-    end
-    return reactor ~= nil
-end
 
-
---Entry point
-function main()
-    repeat
-        local good = initialize()
-        if (not good) then
-            print("Reactor could not be detected! Trying again")
+    local reactorDetected = false
+    while (not reactorDetected) do
+        reactorDetected = detectReactor()
+        if (not reactorDetected) then
+            print("Reactor not detected! Trying again...")
             sleep(1)
-        else
-            print("Reactor detected! Proceeding with initialization: ")
         end
-    until (good)
+    end
+    
+    print("Reactor detected! Proceeding with initialization ")
+
+    print("Loading config...")
     loadFromConfig()
+    print("Initializing monitor if connected...")
     initMon()
+    print("Writing config to disk...")
     saveToConfig()
-    print("Reactor initialization done!")
+    print("Reactor initialization done! Starting controller")
     sleep(2)
+
     term.clear()
     term.setCursorPos(1,1)
     print("Reactor Controller Version "..version)

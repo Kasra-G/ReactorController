@@ -1,3 +1,4 @@
+local version = "1.01"
 --[[
 The MIT License (MIT)
  
@@ -24,7 +25,6 @@ THE SOFTWARE.
 Edited by DrunkenKas.
 	See Github: https://github.com/Kasra-G/ReactorController/#readme
 --]]
-local version = "1.01"
 
 local function setupLabel(buttonLen, minY, maxY, name)
 	local labelTable = {}

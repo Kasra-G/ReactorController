@@ -1,115 +1,96 @@
+local version = "1.0"
+
 --Github: https://github.com/Kasra-G/ReactorController/#readme
 
-fs.makeDir("/usr")
-fs.makeDir("/usr/apis")
-
+-- ["filename"] = "pastebinCode"
 local filesToUpdate = {
-	["/reactorController.lua"] = "b17hfTqe",
+    ["/reactorController.lua"] = "b17hfTqe",
     ["/usr/apis/touchpoint.lua"] = "nx9pkLbJ",
+    ["/update_reactor.lua"] = "w6vVtrLb",
 }
--- Table for files/pastebin codes
 
-function getFile(fileName, link)
-  
-  local file = http.get("https://pastebin.com/raw/" .. textutils.urlEncode(link))
-  
-  if file then
+local function getPastebinFileContents(filename, pastebinCode)
+    local tempFilename = "/temp" .. filename
+
+    -- Avoid calling pastebin API directly to be more robust towards any future API changes
+    shell.run("pastebin", "get", pastebinCode, tempFilename)
+    local tempFile = fs.open(tempFilename, "r")
     
-     local out = file.readAll()
-     file.close()
-     return out
-     -- Returning contents of the pastebin file
-  else
-    
-     return false
-     -- Returning false if the link is invalid
-  end
+    if not tempFile then
+        return nil
+    end
+
+    local fileContents = tempFile.readAll()
+    tempFile.close()
+    fs.delete(tempFilename)
+    return fileContents
 end
--- Function for downloading the files from pastebin, needs HTTP to run
 
-function getVersion(fileContents)
-  
-  if fileContents then
-    local _, numberChars = fileContents:lower():find('version = "')
+-- Requires HTTP to be enabled
+local function getVersion(fileContents)
+    if not fileContents then
+        return nil
+    end
+
+    local _, numberChars = fileContents:lower():find('local version = "')
+
+    if not numberChars then
+        return nil
+    end
+
     local fileVersion = ""
     local char = ""
-    -- Declaring variables aswell as finding where in the fileContents argument is 'version = "'
-  
-    if numberChars then
-      while char ~= '"' do
-      
+
+    while char ~= '"' do
         numberChars = numberChars + 1
         char = fileContents:sub(numberChars,numberChars)
         fileVersion = fileVersion .. char
-      end
-      -- Making the version variable by putting every character from 'version = "' to '"'
-    
-      fileVersion = fileVersion:sub(1,#fileVersion-1)
-      return fileVersion
-    else
-    
-      return false
-      -- If the function didn't find 'version = "' in the fileContents then it returns false
     end
-  else
-    
-    return ""
-  end
+
+    fileVersion = fileVersion:sub(1,#fileVersion-1) -- Remove quotes around the version number
+    return fileVersion
 end
--- Finding the version number
 
+local function updateFile(filename, pastebinCode)
+        if fs.isDir(filename) then
+            print("[Error] " .. filename .. " is a directory")
+            return
+        end
+        local pastebinContents = getPastebinFileContents(filename, pastebinCode)
 
+        if not pastebinContents then
+            print("[Error] " .. filename .. " has an invalid link")
+        end
 
-for file, url in pairs(filesToUpdate) do
-  
-  if not fs.isDir(file) then
-    
-    local pastebinContents = getFile(file,url)
-    -- Getting the pastebin file's contents
-    
-    if pastebinContents then
-      if fs.exists(file) then
-        
-        local localFile = fs.open(file,"r")
-        localContents = localFile.readAll()
-        localFile.close()
-        -- Getting the local file's contents
-      end
-      
-      local pastebinVersion = getVersion(pastebinContents)
-      local localVersion = getVersion(localContents)
-      -- Defining version variables for each of the file's contents
-      
-      if not pastebinVersion then
-        
-        print("[Error  ] the pastebin code for " .. file .. " does not have a version variable")
-        -- Tests if the pastebin code's contents has a version variable or not
-        
-      elseif not localVersion then
-        
-        print("[Error  ] " .. file .. " does not have a version variable")
-        -- Tests if the local file doesn't have the version variable
-        
-      elseif pastebinVersion == localVersion then
-        
-        print("[Success] " .. file .. " is already the latest version")
-        -- If the pastebin file's version is equal to the local file's version then it does nothing
-      else
-        
-        endFile = fs.open(file,"w")
-        endFile.write(pastebinContents)
-        endFile.close()
-        
-        print("[Success] " .. file .. " has been updated to version " .. pastebinVersion)
-        -- If the versions are not the same then it will write over the current local file to update it to the pastebin version
-      end
-    else
-      
-      print("[Error  ] " .. file .. " has an invalid link")
-     end
-  else
-    
-    print("[Error  ] " .. file .. " is a directory")
-  end
+        local pastebinVersion = getVersion(pastebinContents)
+        if not pastebinVersion then
+            print("[Error] the pastebin code for " .. filename .. " does not have a version variable")
+            return
+        end
+
+        local localVersion = nil
+        if fs.exists(filename) then
+            local localFile = fs.open(filename,"r")
+            localVersion = getVersion(localFile.readAll())
+            localFile.close()
+        end
+
+        if localVersion ~= pastebinVersion then
+            local localFile = fs.open(filename,"w")
+            localFile.write(pastebinContents)
+            localFile.close()
+            print("[Success] " .. filename .. " has been updated to version " .. pastebinVersion)
+        elseif pastebinVersion == localVersion then
+            print("[Success] No update required: " .. filename .. " is already the latest version")
+        end
 end
--- Error messages catching different errors
+
+local function main() 
+    fs.makeDir("/usr")
+    fs.makeDir("/usr/apis")
+    for filename, pastebinCode in pairs(filesToUpdate) do
+        updateFile(filename, pastebinCode)
+    end
+end
+
+main()
