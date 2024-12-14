@@ -542,6 +542,11 @@ local function initMon()
 
     mon = peripheral.wrap(monSide)
 
+    if mon == nil then
+        monSide = nil
+        return
+    end
+
     resetMon()
     t = touchpoint.new(monSide)
     sizex, sizey = mon.getSize()
