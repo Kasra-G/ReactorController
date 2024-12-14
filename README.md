@@ -7,7 +7,7 @@ Easily automate your Bigger/Extreme reactor with a pretty graphical UI. <br />
   <li>One line installation</li>
   <li>Modular displays to customize information shown</li>
   <li>Automatically control your reactor with optional configuration</li>
-  <li>Tested on Extreme, Big, and Bigger Reactors</li>
+  <li>Tested on Extreme and Bigger Reactors</li>
   </bl>
 
 ## Turbine support??
