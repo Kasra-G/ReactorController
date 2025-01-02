@@ -28,10 +28,14 @@ THE SOFTWARE.
 ]]
 
 dofile("/usr/apis/touchpoint.lua")
+dofile("classes.lua")
+dofile("draw.lua")
+dofile("graph.lua")
+dofile("monitor.lua")
 
 local reactorVersion, reactor
 local mon, monSide
-local sizex, sizey, dim, oo, offy
+local sizex, sizey, dividerXCoord, oo, offy
 local btnOn, btnOff, invalidDim
 local minb, maxb
 local rod, rfLost
@@ -40,7 +44,7 @@ local fuelTemp, caseTemp, fuelUsage, waste, capacity = 0,0,0,0,1
 local t
 local displayingGraphMenu = false
 
-local secondsToAverage = 2
+local SECONDS_TO_AVERAGE = 2
 
 local averageStoredThisTick = 0
 local averageLastRFT = 0
@@ -50,6 +54,8 @@ local averageWaste = 0
 local averageFuelTemp = 0
 local averageCaseTemp = 0
 local averageRfLost = 0
+
+local MINIMUM_DIVIDER_X_VALUE = 3
 
 -- table of which graphs to draw
 local graphsToDraw = {}
@@ -73,68 +79,20 @@ local XOffs =
     {96, true},
 }
 
--- Draw a box with no fill
-local function drawBox(size, xoff, yoff, color)
-    if (monSide == nil) then
-        return
-    end
-    local x,y = mon.getCursorPos()
-    mon.setBackgroundColor(color)
-    local horizLine = string.rep(" ", size[1])
-    mon.setCursorPos(xoff + 1, yoff + 1)
-    mon.write(horizLine)
-    mon.setCursorPos(xoff + 1, yoff + size[2])
-    mon.write(horizLine)
-
-    -- Draw vertical lines
-    for i=0, size[2] - 1 do
-        mon.setCursorPos(xoff + 1, yoff + i + 1)
-        mon.write(" ")
-        mon.setCursorPos(xoff + size[1], yoff + i +1)
-        mon.write(" ")
-    end
-    mon.setCursorPos(x,y)
-    mon.setBackgroundColor(colors.black)
-end
-
---Draw a filled box
-local function drawFilledBox(size, xoff, yoff, colorOut, colorIn)
-    if (monSide == nil) then
-        return
-    end
-    local horizLine = string.rep(" ", size[1] - 2)
-    drawBox(size, xoff, yoff, colorOut)
-    local x,y = mon.getCursorPos()
-    mon.setBackgroundColor(colorIn)
-    for i=2, size[2] - 1 do
-        mon.setCursorPos(xoff + 2, yoff + i)
-        mon.write(horizLine)
-    end
-    mon.setBackgroundColor(colors.black)
-    mon.setCursorPos(x,y)
-end
-
---Draws text on the screen
-local function drawText(text, x1, y1, backColor, textColor)
-    if (monSide == nil) then
-        return
-    end
-    local x, y = mon.getCursorPos()
-    mon.setCursorPos(x1, y1)
-    mon.setBackgroundColor(backColor)
-    mon.setTextColor(textColor)
-    mon.write(text)
-    mon.setTextColor(colors.white)
-    mon.setBackgroundColor(colors.black)
-    mon.setCursorPos(x,y)
-end
-
 --Helper method for adding buttons
-local function addButt(name, callBack, size, xoff, yoff, color1, color2)
-    t:add(name, callBack,
-            xoff + 1, yoff + 1,
-            size[1] + xoff, size[2] + yoff,
-            color1, color2)
+local function addButton(touch, name, callBack, offset, size, color1, color2)
+    local buttonTopLeftCorner = offset + Vector2.one
+    local buttonBottomRightCorner = offset + size
+    touch:add(
+        name,
+        callBack,
+        buttonTopLeftCorner.x,
+        buttonTopLeftCorner.y,
+        buttonBottomRightCorner.x,
+        buttonBottomRightCorner.y,
+        color1,
+        color2
+    )
 end
 
 local function minAdd10()
@@ -175,24 +133,74 @@ local function addButtons()
     if (sizey == 24) then
         oo = 1
     end
-    addButt("On", turnOn, {8, 3}, dim + 7, 3 + oo,
-            colors.red, colors.lime)
-    addButt("Off", turnOff, {8, 3}, dim + 19, 3 + oo,
-            colors.red, colors.lime)
+    local buttonSize = Vector2.new(8, 3)
+    local offsetOnOff = Vector2.new(dividerXCoord + 5, 3 + oo)
+
+    addButton(
+        t,
+        "On",
+        turnOn,
+        offsetOnOff,
+        buttonSize,
+        colors.red,
+        colors.lime
+    )
+
+    addButton(
+        t,
+        "Off",
+        turnOff,
+        offsetOnOff + Vector2.new(12, 0),
+        buttonSize,
+        colors.red,
+        colors.lime
+    )
+
     if (btnOn) then
         t:toggleButton("On", true)
     else
         t:toggleButton("Off", true)
     end
+
+    local offset = Vector2.new(dividerXCoord, oo)
+
     if (sizey > 24) then
-        addButt("+ 10", minAdd10, {8, 3}, dim + 7, 14 + oo,
-                colors.purple, colors.pink)
-        addButt(" + 10 ", maxAdd10, {8, 3}, dim + 19, 14 + oo,
-                colors.magenta, colors.pink)
-        addButt("- 10", minSub10, {8, 3}, dim + 7, 18 + oo,
-                colors.purple, colors.pink)
-        addButt(" - 10 ", maxSub10, {8, 3}, dim + 19, 18 + oo,
-                colors.magenta, colors.pink)
+        addButton(
+            t,
+            "+ 10",
+            minAdd10,
+            offset + Vector2.new(5, 14),
+            buttonSize,
+            colors.purple,
+            colors.pink
+        )
+        addButton(
+            t,
+            " + 10 ",
+            maxAdd10,
+            offset + Vector2.new(17, 14),
+            buttonSize,
+            colors.magenta,
+            colors.pink
+        )
+        addButton(
+            t,
+            "- 10",
+            minSub10,
+            offset + Vector2.new(5, 18),
+            buttonSize,
+            colors.purple,
+            colors.pink
+        )
+        addButton(
+            t,
+            " - 10 ",
+            maxSub10,
+            offset + Vector2.new(17, 18),
+            buttonSize,
+            colors.magenta,
+            colors.pink
+        )
     end
 end
 
@@ -240,7 +248,7 @@ end
 
 local function getAvailableXOff()
     for i,v in pairs(XOffs) do
-        if (v[2] and v[1] < dim) then
+        if (v[2] and v[1] < dividerXCoord - 1) then
             v[2] = false
             return v[1]
         end
@@ -291,216 +299,320 @@ end
 
 local function addGraphButtons()
     offy = oo - 14
-    for i,v in pairs(graphs) do
-        addButt(v, function() toggleGraph(v) end, {20, 3},
-                dim + 7, offy + i * 3 - 1,
-                colors.red, colors.lime)
-        if (graphsToDraw[v] ~= nil) then
-            t:toggleButton(v, true)
+    local graphButtonSize = Vector2.new(20, 3)
+    local graphButtonOffset = Vector2.new(dividerXCoord + 5, offy)
+    for i,graphName in pairs(graphs) do
+
+        addButton(
+            t,
+            graphName,
+            function() toggleGraph(graphName) end,
+            graphButtonOffset + Vector2.new(0, i * 3 - 1),
+            graphButtonSize,
+            colors.red,
+            colors.lime
+        )
+        if (graphsToDraw[graphName] ~= nil) then
+            t:toggleButton(graphName, true)
         end
     end
 end
 
-local function drawGraphButtons()
-    drawBox({sizex - dim - 3, oo - offy - 1},
-            dim + 2, offy, colors.orange)
-    drawText(" Graph Controls ",
-            dim + 7, offy + 1,
-            colors.black, colors.orange)
+local function drawGraphButtons(mon, offset, size)
+
+    DrawUtil.drawRectangle(mon, colors.black, colors.orange, offset, size)
+    local textPos = offset + Vector2.new(4, 0)
+    DrawUtil.drawText(
+        mon,
+        " Graph Controls ",
+        textPos,
+        colors.black,
+        colors.orange
+    )
 end
 
-local function drawEnergyBuffer(xoff)
-    local srf = sizey - 9
-    local off = xoff
-    local right = off + 19 < dim
-    local poff = right and off + 15 or off - 6
+local function drawEnergyBuffer(mon, offset, graphSize, drawPercentLabelOnRight)
+    DrawUtil.drawText(mon, "Energy Buffer", offset, colors.black, colors.orange)
+    DrawUtil.drawRectangle(mon, colors.red, colors.gray, offset + Vector2.new(0, 1), graphSize)
 
-    drawBox({15, srf + 2}, off - 1, 4, colors.gray)
-    local pwr = math.floor(getPercPower() / 100
-            * (srf))
-    drawFilledBox({13, srf}, off, 5,
-            colors.red, colors.red)
+    local energyBufferMaxHeight = graphSize.y - 2
+    local unitEnergyLevel = getPercPower() / 100
+    local energyBufferHeight = math.floor(unitEnergyLevel * energyBufferMaxHeight + 0.5)
     local rndpw = rnd(getPercPower(), 2)
-    local color = (rndpw < maxb and rndpw > minb) and colors.green
-            or (rndpw >= maxb and colors.orange or colors.blue)
-    if (pwr > 0) then
-        drawFilledBox({13, pwr + 1}, off, srf + 4 - pwr,
-                color, color)
+
+    local energyBufferColor
+    if rndpw < maxb and rndpw > minb then
+        energyBufferColor = colors.green
+    elseif rndpw >= maxb then
+        energyBufferColor = colors.orange
+    elseif rndpw <= minb then
+        energyBufferColor = colors.blue
     end
-    --drawPoint(off + 14, srf + 5 - pwr, pwr > 0 and color or colors.red)
-    drawText(string.format(right and "%.2f%%" or "%5.2f%%", rndpw), poff, srf + 5 - pwr,
-            colors.black, color)
-    drawText("Energy Buffer", off + 1, 4,
-            colors.black, colors.orange)
-    drawText(format(averageStoredThisTick).."RF", off + 1, srf + 5 - pwr,
-            pwr > 0 and color or colors.red, colors.black)
+
+    local energyBufferTipOffset = offset + Vector2.new(1, 2 + energyBufferMaxHeight - energyBufferHeight)
+    local energyBufferSize = Vector2.new(graphSize.x - 2, energyBufferHeight)
+
+    DrawUtil.drawFilledRectangle(mon, energyBufferColor, energyBufferTipOffset, energyBufferSize)
+
+    local energyBufferTextOffset = energyBufferTipOffset
+    local rfLabelBackgroundColor = energyBufferColor
+
+    if energyBufferHeight <= 0 then
+        energyBufferTextOffset = energyBufferTipOffset + Vector2.new(0, -1)
+        rfLabelBackgroundColor = colors.red
+    end
+
+    local percentLabelXOffset = offset.x - 6
+    if drawPercentLabelOnRight then
+        percentLabelXOffset = offset.x + 15
+    end
+
+    DrawUtil.drawText(
+        mon,
+        string.format(drawPercentLabelOnRight and "%.2f%%" or "%5.2f%%", rndpw),
+        Vector2.new(percentLabelXOffset, energyBufferTextOffset.y),
+        colors.black,
+        energyBufferColor
+    )
+    DrawUtil.drawText(
+        mon,
+        format(averageStoredThisTick).."RF",
+        energyBufferTextOffset,
+        rfLabelBackgroundColor,
+        colors.black
+    )
 end
 
-local function drawControlLevel(xoff)
-    local srf = sizey - 9
-    local off = xoff
-    drawBox({15, srf + 2}, off - 1, 4, colors.gray)
-    drawFilledBox({13, srf}, off, 5,
-            colors.yellow, colors.yellow)
-    local rodTr = math.floor(averageRod / 100
-            * (srf))
-    drawText("Control Level", off + 1, 4,
-            colors.black, colors.orange)
-    if (rodTr > 0) then
-        drawFilledBox({9, rodTr}, off + 2, 5,
-                colors.white, colors.white)
-    end
-    drawText(string.format("%6.2f%%", averageRod), off + 4, rodTr > 0 and rodTr + 5 or 6,
-            rodTr > 0 and colors.white or colors.yellow, colors.black)
+local function drawControlGraph(mon, offset, size, averageRod)
+    local unitRodLevel = averageRod / 100
+    local controlRodMaxPixelHeight = size.y - 2
+    local controlRodPixelHeight = math.ceil(unitRodLevel * controlRodMaxPixelHeight)
 
+    DrawUtil.drawText(
+        mon,
+        "Control Level",
+        offset + Vector2.new(1, 0),
+        colors.black,
+        colors.orange
+
+    )
+    DrawUtil.drawRectangle(
+        mon,
+        colors.yellow,
+        colors.gray,
+        offset + Vector2.new(0, 1),
+        size
+    )
+    DrawUtil.drawFilledRectangle(
+        mon,
+        colors.white,
+        offset + Vector2.new(3, 2),
+        Vector2.new(9, controlRodPixelHeight)
+    )
+
+    local controlRodLevelTextPos, color
+    if controlRodPixelHeight > 0 then
+        color = colors.white
+        controlRodLevelTextPos = offset + Vector2.new(4, 1 + controlRodPixelHeight)
+    else
+        color = colors.yellow
+        controlRodLevelTextPos = offset + Vector2.new(4, 2)
+    end
+
+    DrawUtil.drawText(
+        mon,
+        string.format("%6.2f%%", averageRod),
+        controlRodLevelTextPos,
+        color,
+        colors.black
+    )
 end
 
-local function drawTemperatures(xoff)
-    local srf = sizey - 9
-    local off = xoff
-    drawBox({15, srf + 2}, off, 4, colors.gray)
-    --drawFilledBox({12, srf}, off, 5,
-    --	colors.red, colors.red)
+local function drawTemperatures(mon, offset, size)
+
+    DrawUtil.drawRectangle(mon, colors.black, colors.gray, offset + Vector2.new(1, 1), size)
+
+    local CASE_TEMP_COLOR = colors.lightBlue
+    local FUEL_TEMP_COLOR = colors.magenta
+    local BACKGROUND_COLOR = colors.black
+
+    local assumedMaxCaseTemperature = 3000
+    local assumedMaxFuelTemperature = 3000
+    local temperatureMaxHeight = size.y - 2
 
     local tempUnit = (reactorVersion == "Bigger Reactors") and "K" or "C"
     local tempFormat = "%4s"..tempUnit
 
-    local fuelRnd = math.floor(averageFuelTemp)
-    local caseRnd = math.floor(averageCaseTemp)
-    local fuelTr = math.floor(fuelRnd / 2000
-            * (srf))
-    local caseTr = math.floor(caseRnd / 2000
-            * (srf))
-    drawText(" Case ", off + 2, 5,
-            colors.gray, colors.lightBlue)
-    drawText(" Fuel ", off + 9, 5,
-            colors.gray, colors.magenta)
-    if (fuelTr > 0) then
-        fuelTr = math.min(fuelTr, srf)
-        drawFilledBox({6, fuelTr}, off + 8, srf + 5 - fuelTr,
-                colors.magenta, colors.magenta)
+    DrawUtil.drawText(mon, "Temperatures", offset + Vector2.new(2, 0), BACKGROUND_COLOR, colors.orange)
+    DrawUtil.drawFilledRectangle(mon, colors.gray, offset + Vector2.new(8, 2), Vector2.new(1, temperatureMaxHeight))
 
-        drawText(string.format(tempFormat, fuelRnd..""),
-                off + 10, srf + 6 - fuelTr,
-                colors.magenta, colors.black)
-    else
-        drawText(string.format(tempFormat, fuelRnd..""),
-                off + 10, srf + 5,
-                colors.black, colors.magenta)
+    -- case temp
+    DrawUtil.drawText(mon, "Case", offset + Vector2.new(3, 1), colors.gray, colors.lightBlue)
+    local caseUnit = math.min(averageCaseTemp / assumedMaxCaseTemperature, 1)
+    local caseTempHeight = math.floor(caseUnit * temperatureMaxHeight + 0.5)
+
+    local caseTempOffset = offset + Vector2.new(2, 2 + temperatureMaxHeight - caseTempHeight)
+    local caseTempSize = Vector2.new(6, caseTempHeight)
+
+    DrawUtil.drawFilledRectangle(mon, CASE_TEMP_COLOR, caseTempOffset, caseTempSize)
+
+    local caseTempTextOffset = caseTempOffset
+    local caseTempTextBackgroundColor = CASE_TEMP_COLOR
+    local caseTempTextColor = BACKGROUND_COLOR
+
+    if caseTempHeight <= 0 then
+        caseTempTextOffset = caseTempOffset + Vector2.new(0, -1)
+        caseTempTextColor, caseTempTextBackgroundColor = caseTempTextBackgroundColor, caseTempTextColor
     end
 
-    if (caseTr > 0) then
-        caseTr = math.min(caseTr, srf)
-        drawFilledBox({6, caseTr}, off + 1, srf + 5 - caseTr,
-                colors.lightBlue, colors.lightBlue)
-        drawText(string.format(tempFormat, caseRnd..""),
-                off + 3, srf + 6 - caseTr,
-                colors.lightBlue, colors.black)
-    else
-        drawText(string.format(tempFormat, caseRnd..""),
-                off + 3, srf + 5,
-                colors.black, colors.lightBlue)
+    local caseRnd = math.floor(averageCaseTemp + 0.5)
+    DrawUtil.drawText(mon, string.format(tempFormat, caseRnd..""), caseTempTextOffset, caseTempTextBackgroundColor, caseTempTextColor)
+
+    -- fuel temp
+    DrawUtil.drawText(mon, "Fuel", offset + Vector2.new(10, 1), colors.gray, colors.lightBlue)
+    local fuelUnit = math.min(averageFuelTemp / assumedMaxFuelTemperature, 1)
+    local fuelTempHeight = math.floor(fuelUnit * temperatureMaxHeight + 0.5)
+
+    local fuelTempOffset = offset + Vector2.new(9, 2 + temperatureMaxHeight - fuelTempHeight)
+    local fuelTempSize = Vector2.new(6, fuelTempHeight)
+
+    DrawUtil.drawFilledRectangle(mon, FUEL_TEMP_COLOR, fuelTempOffset, fuelTempSize)
+
+    local fuelTempTextOffset = fuelTempOffset
+    local fuelTempTextBackgroundColor = FUEL_TEMP_COLOR
+    local fuelTempTextColor = BACKGROUND_COLOR
+
+    if fuelTempHeight <= 0 then
+        fuelTempTextOffset = fuelTempOffset + Vector2.new(0, -1)
+        fuelTempTextColor, fuelTempTextBackgroundColor = fuelTempTextBackgroundColor, fuelTempTextColor
     end
 
-    drawText("Temperatures", off + 2, 4,
-            colors.black, colors.orange)
-    drawBox({1, srf}, off + 7, 5,
-            colors.gray)
+    local fuelRnd = math.floor(averageFuelTemp + 0.5)
+    DrawUtil.drawText(mon, string.format(tempFormat, fuelRnd..""), fuelTempTextOffset, fuelTempTextBackgroundColor, fuelTempTextColor)
 end
 
-local function drawGraph(name, offset)
+local function drawGraph(name, graphOffset, graphSize)
     if (name == "Energy Buffer") then
-        drawEnergyBuffer(offset)
+        local drawPercentLabelOnRight = graphOffset.x + 19 < dividerXCoord - 1
+        drawEnergyBuffer(mon, graphOffset, graphSize, drawPercentLabelOnRight)
     elseif (name == "Control Level") then
-        drawControlLevel(offset)
+        drawControlGraph(mon, graphOffset, graphSize, averageRod)
     elseif (name == "Temperatures") then
-        drawTemperatures(offset)
+        drawTemperatures(mon, graphOffset, graphSize)
     end
 end
 
-local function drawGraphs()
-    for i,v in pairs(graphsToDraw) do
-        if (v + 15 < dim) then
-            drawGraph(i,v)
+local function drawGraphs(mon, graphsToDraw, dividerXCoord, offset, size)
+    DrawUtil.drawRectangle(mon, colors.black, colors.lightBlue, offset, size)
+    local label = " Reactor Graphs "
+    DrawUtil.drawText(
+        mon,
+        label,
+        offset + Vector2.new(dividerXCoord - (#label + 5) - 1, 0),
+        colors.black,
+        colors.lightBlue
+    )
+
+    local graphSize = Vector2.new(15, sizey - 7)
+    local graphYOffset = 4
+    for graphName, graphXOffset in pairs(graphsToDraw) do
+        if (graphXOffset + graphSize.x < dividerXCoord) then
+            drawGraph(graphName, Vector2.new(graphXOffset, graphYOffset), graphSize)
         end
     end
 end
 
-local function drawStatus()
-    if (dim <= -1) then
-        return
-    end
-    drawBox({dim, sizey - 2},
-            1, 1, colors.lightBlue)
-    drawText(" Reactor Graphs ", dim - 18, 2,
-            colors.black, colors.lightBlue)
-    drawGraphs()
-end
+local function drawControls(mon, offset, size, drawBufferVisualization)
 
-local function drawControls()
-    if (sizey == 24) then
-        drawBox({sizex - dim - 3, 9}, dim + 2, oo,
-                colors.cyan)
-        drawText(" Reactor Controls ", dim + 7, oo + 1,
-                colors.black, colors.cyan)
-        drawText("Reactor "..(btnOn and "Online" or "Offline"),
-                dim + 10, 3 + oo,
-                colors.black, btnOn and colors.green or colors.red)
+    DrawUtil.drawRectangle(mon, colors.black, colors.cyan, offset, size)
+    DrawUtil.drawText(mon, " Reactor Controls ", offset + Vector2.new(4, 0), colors.black, colors.cyan)
+
+    local reactorOnOffLabel = "Reactor "..(btnOn and "Online" or "Offline")
+    local reactorOnOffLabelColor = btnOn and colors.green or colors.red
+    DrawUtil.drawText(mon, reactorOnOffLabel, offset + Vector2.new(7, 2), colors.black, reactorOnOffLabelColor)
+
+    if not drawBufferVisualization then
         return
     end
 
-    drawBox({sizex - dim - 3, 23}, dim + 2, oo,
-            colors.cyan)
-    drawText(" Reactor Controls ", dim + 7, oo + 1,
-            colors.black, colors.cyan)
-    drawFilledBox({20, 3}, dim + 7, 8 + oo,
-            colors.red, colors.red)
-    drawFilledBox({(maxb - minb) / 5, 3},
-            dim + 7 + minb / 5, 8 + oo,
-            colors.green, colors.green)
-    drawText(string.format("%3s", minb.."%"), dim + 6 + minb / 5, 12 + oo,
-            colors.black, colors.purple)
-    drawText(maxb.."%", dim + 8 + maxb / 5, 12 + oo,
-            colors.black, colors.magenta)
-    drawText("Buffer Target Range", dim + 8, 8 + oo,
-            colors.black, colors.orange)
-    drawText("Min", dim + 10, 14 + oo,
-            colors.black, colors.purple)
-    drawText("Max", dim + 22, 14 + oo,
-            colors.black, colors.magenta)
-    drawText("Reactor ".. (btnOn and "Online" or "Offline"),
-            dim + 10, 3 + oo,
-            colors.black, btnOn and colors.green or colors.red)
+    local bufferMinInPixels = minb / 5
+    local bufferMaxInPixels = maxb / 5
+    local bufferRangePixelWidth = bufferMaxInPixels - bufferMinInPixels
+
+    local bufferVisualOffset = offset + Vector2.new(5, 8)
+    local bufferVisualSize = Vector2.new(20, 3)
+
+    DrawUtil.drawText(mon, "Buffer Target Range", bufferVisualOffset + Vector2.new(0, -1), colors.black, colors.orange)
+    DrawUtil.drawFilledRectangle(mon, colors.red, bufferVisualOffset, bufferVisualSize)
+    DrawUtil.drawFilledRectangle(mon, colors.green, bufferVisualOffset + Vector2.new(bufferMinInPixels, 0), Vector2.new(bufferRangePixelWidth, 3))
+
+    DrawUtil.drawText(
+        mon,
+        string.format("%3s", minb.."%"),
+        bufferVisualOffset + Vector2.new(bufferMinInPixels - 3, bufferVisualSize.y),
+        colors.black,
+        colors.purple
+    )
+    DrawUtil.drawText(
+        mon,
+        maxb.."%",
+        bufferVisualOffset + Vector2.new(bufferMaxInPixels, bufferVisualSize.y),
+        colors.black,
+        colors.magenta
+    )
+    DrawUtil.drawText(mon, "Min", offset + Vector2.new(7, 13), colors.black, colors.purple)
+    DrawUtil.drawText(mon, "Max", offset + Vector2.new(19, 13), colors.black, colors.purple)
 end
 
-local function drawStatistics()
-    local oS = sizey - 13
-    drawBox({sizex - dim - 3, sizey - oS - 1}, dim + 2, oS,
-            colors.blue)
-    drawText(" Reactor Statistics ", dim + 7, oS + 1,
-            colors.black, colors.blue)
+local function drawStatistics(mon, offset, size)
+    DrawUtil.drawRectangle(mon, colors.black, colors.blue, offset, size)
+    DrawUtil.drawText(
+        mon,
+        " Reactor Statistics ",
+        offset + Vector2.new(4, 0),
+        colors.black,
+        colors.blue
+    )
 
-    --statistics
-    drawText("Generating : "
-            ..format(averageLastRFT).."RF/t", dim + 5, oS + 3,
-            colors.black, colors.green)
-    drawText("RF Drain   "
-            ..(averageStoredThisTick <= averageLastRFT and "> " or ": ")
-            ..format(averageRfLost)
-            .."RF/t", dim + 5, oS + 5,
-            colors.black, colors.red)
-    drawText("Efficiency : "
-            ..format(getEfficiency()).."RF/B",
-            dim + 5, oS + 7,
-            colors.black, colors.green)
-    drawText("Fuel Usage : "
-            ..format(averageFuelUsage)
-            .."B/t", dim + 5, oS + 9,
-            colors.black, colors.green)
-    drawText("Waste      : "
-            ..string.format("%7d mB", waste),
-            dim + 5, oS + 11,
-            colors.black, colors.green)
+    DrawUtil.drawText(
+        mon,
+        "Generating : "..format(averageLastRFT).."RF/t",
+        offset + Vector2.new(2, 2),
+        colors.black,
+        colors.green
+    )
+
+    DrawUtil.drawText(
+        mon,
+        "RF Drain   "..(averageStoredThisTick <= averageLastRFT and "> " or ": ")..format(averageRfLost).."RF/t",
+        offset + Vector2.new(2, 4),
+        colors.black,
+        colors.red
+    )
+
+    DrawUtil.drawText(
+        mon,
+        "Efficiency : "..format(getEfficiency()).."RF/B",
+        offset + Vector2.new(2, 6),
+        colors.black,
+        colors.green
+    )
+
+    DrawUtil.drawText(
+        mon,
+        "Fuel Usage : "..format(averageFuelUsage).."B/t",
+        offset + Vector2.new(2, 8),
+        colors.black,
+        colors.green
+    )
+
+    DrawUtil.drawText(
+        mon,
+        "Waste      : "..string.format("%7d mB", waste),
+        offset + Vector2.new(2, 10),
+        colors.black,
+        colors.green
+    )
 end
 
 --Draw a scene
@@ -513,20 +625,94 @@ local function drawScene()
         return
     end
 
+    local offset, size
+
     if (displayingGraphMenu) then
-        drawGraphButtons()
+        offset = Vector2.new(dividerXCoord + 1, offy + 1)
+        size = Vector2.new(30, 13)
+        drawGraphButtons(mon, offset, size)
     end
-    drawControls()
-    drawStatus()
-    drawStatistics()
+
+    offset = Vector2.new(dividerXCoord + 1, oo + 1)
+    size = Vector2.new(30, 23)
+    local drawBufferVisualization = true
+    if (sizey <= 24) then
+        size = Vector2.new(30, 9)
+        drawBufferVisualization = false
+    end
+    drawControls(mon, offset, size, drawBufferVisualization)
+
+    if (dividerXCoord > MINIMUM_DIVIDER_X_VALUE) then
+        offset = Vector2.new(2, 2)
+        size = Vector2.new(dividerXCoord - 2, sizey - 2)
+        drawGraphs(mon, graphsToDraw, dividerXCoord, offset, size)
+    end
+
+    offset = Vector2.new(dividerXCoord + 1, sizey - 12)
+    size = Vector2.new(30, 12)
+    drawStatistics(mon, offset, size)
+
     t:draw()
 end
 
+local function getAllPeripheralIdsForType(targetType)
+    ---@type string[]
+    local peripheralIds = {}
+    for _, id in pairs(peripheral.getNames()) do
+        if (peripheral.getType(id) == targetType) then
+            table.insert(peripheralIds, id)
+        end
+    end
+    return peripheralIds
+end
+
+---@type table<string, Monitor>
+local monitors = {}
+
+local function initMon2(id)
+    local monitor = Monitor.new(id)
+    monSide = id
+    mon = monitor.mon
+    monitor:clear()
+    t = monitor.touch
+
+    sizex, sizey = mon.getSize()
+    oo = sizey - 37
+    dividerXCoord = sizex - 31
+
+    if (sizex == 36) then
+        dividerXCoord = MINIMUM_DIVIDER_X_VALUE
+    end
+    displayingGraphMenu = pcall(function() addGraphButtons() end)
+    _, invalidDim = pcall(function() addButtons() end)
+
+    return monitor
+end
+
+local function updateMonitors()
+    for _, monitor in pairs(monitors) do
+        ---@type ReactorStatistics
+        local reactorStats = {}
+        monitor:update(reactorStats)
+    end
+end
+
+local function initMonitors()
+    monitors = {}
+    local ids = getAllPeripheralIdsForType("monitor")
+
+    for _, id in pairs(ids) do
+        monitors[id] = initMon2(id)
+    end
+end
+-- DELETE LATER!
+initMonitors()
+
 --returns the side that a given peripheral type is connected to
-local function getPeripheral(name)
-    for i,v in pairs(peripheral.getNames()) do
-        if (peripheral.getType(v) == name) then
-            return v
+local function getPeripheral(targetType)
+    for _, name in pairs(peripheral.getNames()) do
+        if (peripheral.getType(name) == targetType) then
+            return name
         end
     end
     return ""
@@ -540,7 +726,8 @@ local function initMon()
         return
     end
 
-    mon = peripheral.wrap(monSide)
+    local monitor = Monitor.new(monSide)
+    mon = monitor.mon
 
     if mon == nil then
         monSide = nil
@@ -551,24 +738,13 @@ local function initMon()
     t = touchpoint.new(monSide)
     sizex, sizey = mon.getSize()
     oo = sizey - 37
-    dim = sizex - 33
+    dividerXCoord = sizex - 31
 
     if (sizex == 36) then
-        dim = -1
+        dividerXCoord = MINIMUM_DIVIDER_X_VALUE
     end
-    if (pcall(addGraphButtons)) then
-        displayingGraphMenu = true
-    else
-        t = touchpoint.new(monSide)
-        displayingGraphMenu = false
-    end
-    local rtn = pcall(addButtons)
-    if (not rtn) then
-        t = touchpoint.new(monSide)
-        invalidDim = true
-    else
-        invalidDim = false
-    end
+    displayingGraphMenu = pcall(function() addGraphButtons() end)
+    _, invalidDim = pcall(function() addButtons() end)
 end
 
 local function setRods(level)
@@ -578,10 +754,8 @@ local function setRods(level)
 end
 
 local function lerp(start, finish, t)
-    -- Ensure t is in the range [0, 1]
     t = math.max(0, math.min(1, t))
 
-    -- Calculate the linear interpolation
     return (1 - t) * start + t * finish
 end
 
@@ -727,7 +901,7 @@ local function updateStats()
     table.insert(caseTempValues, caseTemp)
     table.insert(rfLostValues, rfLost)
 
-    local maxIterations = 20 * secondsToAverage
+    local maxIterations = 20 * SECONDS_TO_AVERAGE
     while #storedThisTickValues > maxIterations do
         table.remove(storedThisTickValues, 1)
         table.remove(lastRFTValues, 1)
@@ -807,7 +981,7 @@ local function loadFromConfig()
             btnOn = true
         end
         sizex, sizey = 100, 52
-        dim = sizex - 33
+        dividerXCoord = sizex - 31
         oo = sizey - 37
         enableGraph("Energy Buffer")
         enableGraph("Control Level")
@@ -856,6 +1030,7 @@ local function loop()
     )
     local handleResize = function(event)
         if (event[1] == "monitor_resize") then
+            local peripheralId = event[2]
             initMon()
         end
     end
@@ -869,7 +1044,11 @@ local function loop()
         end
     end
     while (true) do
-        local event = (monSide == nil) and { os.pullEvent() } or { t:handleEvents() }
+        local event = { os.pullEvent() }
+
+        if monSide ~= nil then
+            event = { t:handleEvents(unpack(event)) }
+        end
 
         updateStatsTick(event)
         redrawTick(event)
