@@ -1,5 +1,1 @@
-shell.run("update_reactor.lua")
-while (true) do
-	shell.run("reactorController.lua")
-	sleep(2)
-end
+shell.run("/src/scripts/main.lua")

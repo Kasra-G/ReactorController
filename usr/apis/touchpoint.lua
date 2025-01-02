@@ -52,7 +52,6 @@ local function setupLabel(buttonLen, minY, maxY, name)
 	return labelTable, name
 end
 
----@class Button
 local Button = {
 	draw = function(self)
 		local old = term.redirect(self.mon)
@@ -169,7 +168,7 @@ local Button = {
 	end,
 }
 
-local function new(monSide)
+function new(monSide)
 	local buttonInstance = {
 		side = monSide or "term",
 		mon = monSide and peripheral.wrap(monSide) or term.current(),
@@ -184,4 +183,4 @@ local function new(monSide)
 	return buttonInstance
 end
 
-_G.touchpoint = {new = new}
+touchpoint = {new = new}
