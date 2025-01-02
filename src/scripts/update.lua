@@ -2,20 +2,16 @@ local OWNER = "Kasra-G"
 local REPO = "ReactorController"
 local BRANCH = "development"
 local COMMIT_FILENAME = "/commit.txt"
-local AUTOMATIC_UPDATE_ENABLED = true
 
 --Github: https://github.com/Kasra-G/ReactorController/#readme
 
-local function getRepoDetails(jsonString)
-    return textutils.unserialiseJSON(jsonString)
-end
-
-local function getRemoteRepoJsonString()
+local function getRemoteRepoDetails()
     local response = http.get("https://api.github.com/repos/"..OWNER.."/"..REPO.."/commits/"..BRANCH)
-    return response.readAll()
+    local responseJSON = response.readAll()
+    return textutils.unserialiseJSON(responseJSON)
 end
 
-local function getLocalRepoJsonString()
+local function getLocalRepoDetails()
     local file = fs.open(COMMIT_FILENAME, "r")
     if file == nil then
         print("Local version file not found! Assuming there is an update available.")
@@ -23,11 +19,7 @@ local function getLocalRepoJsonString()
     end
     local contents = file.readAll()
     file.close()
-    return contents
-end
-
-local function checkForUpdate(localRepoDetails, remoteRepoDetails)
-    return localRepoDetails.sha ~= remoteRepoDetails.sha
+    return textutils.unserialiseJSON(contents)
 end
 
 local function saveRepoDetails(repoDetails)
@@ -82,20 +74,26 @@ local function downloadRemoteSrcDirectory(remoteRepoRootTreeSHA)
     end
 end
 
-function _G.performUpdate(remoteRepoRootTreeSHA)
+local remoteRepoDetails
+
+local function performUpdate()
     deleteExistingFiles()
-    downloadRemoteSrcDirectory(remoteRepoRootTreeSHA)
+    downloadRemoteSrcDirectory(remoteRepoDetails.sha)
     downloadGitHubFileContents("startup")
 end
 
-local remoteRepoJson = getRemoteRepoJsonString()
-local remoteRepoDetails = getRepoDetails(remoteRepoJson)
+local function checkForUpdate()
+    remoteRepoDetails = getRemoteRepoDetails()
 
-local localRepoJson = getLocalRepoJsonString()
-local localRepoDetails = getRepoDetails(localRepoJson)
+    local localRepoDetails = getLocalRepoDetails()
 
-local update_available = checkForUpdate(localRepoDetails, remoteRepoDetails)
+    local updateAvailable = localRepoDetails.sha ~= remoteRepoDetails.sha
 
-if update_available and AUTOMATIC_UPDATE_ENABLED then
-    performUpdate(remoteRepoDetails.sha)
+    return updateAvailable
 end
+
+_G.UpdateScript = {
+    checkForUpdate = checkForUpdate,
+    performUpdate = performUpdate,
+    saveRepoDetails = saveRepoDetails,
+}
