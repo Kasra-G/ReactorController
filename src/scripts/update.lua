@@ -1,18 +1,20 @@
-local OWNER = "Kasra-G"
-local REPO = "ReactorController"
-local BRANCH = "development"
-local COMMIT_FILENAME = "/commit.txt"
-
---Github: https://github.com/Kasra-G/ReactorController/#readme
-
+local cachedRemoteRepoDetails
 local function getRemoteRepoDetails()
-    local response = http.get("https://api.github.com/repos/"..OWNER.."/"..REPO.."/commits/"..BRANCH)
+    local response = http.get("https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/commits/"..GITHUB_CONFIG.BRANCH)
     local responseJSON = response.readAll()
-    return textutils.unserialiseJSON(responseJSON)
+    cachedRemoteRepoDetails = textutils.unserialiseJSON(responseJSON)
+    return cachedRemoteRepoDetails
 end
 
-local function getLocalRepoDetails()
-    local file = fs.open(COMMIT_FILENAME, "r")
+local function getRemoteRepoDetailsCached()
+    if cachedRemoteRepoDetails == nil then
+        cachedRemoteRepoDetails = getRemoteRepoDetails()
+    end
+    return cachedRemoteRepoDetails
+end
+
+local function getLocalRepoDetails(path)
+    local file = fs.open(path, "r")
     if file == nil then
         print("Local version file not found! Assuming there is an update available.")
         return "{}"
@@ -22,9 +24,9 @@ local function getLocalRepoDetails()
     return textutils.unserialiseJSON(contents)
 end
 
-local function saveRepoDetails(repoDetails)
+local function saveRepoDetails(repoDetails, path)
     local serialized = textutils.serializeJSON(repoDetails)
-    local file = fs.open(COMMIT_FILENAME, "w")
+    local file = fs.open(path, "w")
     file.write(serialized)
     file.close()
 end
@@ -34,8 +36,8 @@ local function deleteExistingFiles()
     fs.delete("startup")
 end
 
-local function downloadGitHubFileContents(filepath)
-    local endpoint = "https://raw.githubusercontent.com/"..OWNER.."/"..REPO.."/refs/heads/"..BRANCH.."/"..filepath
+local function downloadGitHubFileByPath(filepath)
+    local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/refs/heads/"..GITHUB_CONFIG.BRANCH.."/"..filepath
     local response = http.get(endpoint)
     local contents = response.readAll()
     local file = fs.open(filepath, "w")
@@ -44,7 +46,7 @@ local function downloadGitHubFileContents(filepath)
 end
 
 local function getGitHubTreeDetails(treeSHA)
-    local endpoint = "https://api.github.com/repos/"..OWNER.."/"..REPO.."/git/trees/"..treeSHA
+    local endpoint = "https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/git/trees/"..treeSHA
     local response = http.get(endpoint)
     local contents = response.readAll()
     local treeDetails = textutils.unserialiseJSON(contents)
@@ -54,10 +56,11 @@ end
 local function downloadGitHubTreeRecursively(path, treeSHA)
     local treeDetails = getGitHubTreeDetails(treeSHA)
     for _, treeEntry in pairs(treeDetails.tree) do
+        local subfilePath = path.."/"..treeEntry.path
         if treeEntry.type == "tree" then
-            downloadGitHubTreeRecursively(path.."/"..treeEntry.path, treeEntry.sha)
-        else
-            downloadGitHubFileContents(path.."/"..treeEntry.path)
+            downloadGitHubTreeRecursively(subfilePath, treeEntry.sha)
+        elseif treeEntry.type == "blob" then
+            downloadGitHubFileByPath(subfilePath)
         end
     end
 end
@@ -67,29 +70,28 @@ local function downloadRemoteSrcDirectory(remoteRepoRootTreeSHA)
     local srcDirectoryName = "src"
 
     for _, treeEntry in pairs(remoteRepoRootTreeDetails.tree) do
-        print(treeEntry.path)
-        if treeEntry.path == srcDirectoryName then
+        if treeEntry.path == srcDirectoryName and treeEntry.type == "tree" then
             downloadGitHubTreeRecursively(srcDirectoryName, treeEntry.sha)
         end
     end
 end
 
-local remoteRepoDetails
-
-local function performUpdate()
-    deleteExistingFiles()
-    downloadRemoteSrcDirectory(remoteRepoDetails.sha)
-    downloadGitHubFileContents("startup")
+--- Checks if there is an update to install
+---@return boolean
+local function checkForUpdate()
+    local remoteRepoDetails = getRemoteRepoDetails()
+    local localRepoDetails = getLocalRepoDetails(UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    return localRepoDetails.sha ~= remoteRepoDetails.sha
 end
 
-local function checkForUpdate()
-    remoteRepoDetails = getRemoteRepoDetails()
+--- Updates and saves the project. src and startup files are deleted and then redownloaded.
+local function performUpdate()
+    local remoteRepoDetails = getRemoteRepoDetailsCached()
 
-    local localRepoDetails = getLocalRepoDetails()
-
-    local updateAvailable = localRepoDetails.sha ~= remoteRepoDetails.sha
-
-    return updateAvailable
+    deleteExistingFiles()
+    downloadRemoteSrcDirectory(remoteRepoDetails.sha)
+    downloadGitHubFileByPath("startup")
+    saveRepoDetails(remoteRepoDetails, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
 end
 
 _G.UpdateScript = {
