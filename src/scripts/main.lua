@@ -1,3 +1,5 @@
+term.clear()
+
 shell.run("/src/config/projectConfigs.lua")
 shell.run("/src/constants/projectConstants.lua")
 shell.run("/src/util/draw.lua")
@@ -37,7 +39,10 @@ local function runFirstTimeSetup()
 end
 
 if UPDATE_CONFIG.DO_FIRST_TIME_SETUP then
+    print("First time startup detected!")
     runFirstTimeSetup()
+    UPDATE_CONFIG.DO_FIRST_TIME_SETUP = false
+    ConfigUtil.writeAllConfigs()
 end
 
 -- For now, do update check here

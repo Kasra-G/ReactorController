@@ -6,12 +6,6 @@ local GITHUB_CONSTANTS = {
     BRANCH = "development",
 }
 
-local function getRemoteRepoSHA()
-    local response = http.get("https://api.github.com/repos/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/commits/"..GITHUB_CONSTANTS.BRANCH)
-    local responseJSON = response.readAll()
-    return textutils.unserialiseJSON(responseJSON).sha
-end
-
 local function downloadGitHubFileByPath(filepath)
     local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/refs/heads/"..GITHUB_CONSTANTS.BRANCH.."/"..filepath
     local response = http.get(endpoint)
@@ -26,5 +20,10 @@ local function install()
     local updateScriptPath = "src/scripts/update.lua"
     downloadGitHubFileByPath(updateScriptPath)
     shell.run(updateScriptPath)
+    print("Downloading files!")
     _G.UpdateScript.performUpdate()
+    print("Download complete. Rebooting...")
+    sleep(1)
 end
+
+install()
