@@ -40,10 +40,10 @@ local function start()
     term.clear()
     term.setCursorPos(1,1)
 
-    if UPDATE_CONFIG.DO_FIRST_TIME_SETUP then
+    if not UPDATE_CONFIG.FIRST_TIME_SETUP_COMPLETE then
         print("First time startup detected!")
         runFirstTimeSetup()
-        UPDATE_CONFIG.DO_FIRST_TIME_SETUP = false
+        UPDATE_CONFIG.FIRST_TIME_SETUP_COMPLETE = true
         ConfigUtil.writeAllConfigs()
     end
 
