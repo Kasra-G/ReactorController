@@ -1,15 +1,23 @@
-shell.run("/src/config/projectConfigs.lua")
-shell.run("/src/constants/projectConstants.lua")
-shell.run("/src/util/draw.lua")
-shell.run("/src/classes/touchpoint.lua")
-shell.run("/src/classes/classes.lua")
-shell.run("/src/classes/graph.lua")
-shell.run("/src/classes/page.lua")
-shell.run("/src/classes/navbar.lua")
-shell.run("/src/classes/monitor.lua")
-shell.run("/src/scripts/controller.lua")
-shell.run("/src/scripts/update.lua")
-shell.run("/src/util/config.lua")
+local function insertAllFilepathsInDirectoryToTable(path, outputFilenames)
+    for _, file in pairs(fs.list(path)) do
+        local filepath = fs.combine(path, file)
+        if fs.isDir(filepath) then
+            insertAllFilepathsInDirectoryToTable(filepath, outputFilenames)
+        else
+            table.insert(outputFilenames, filepath)
+        end
+    end
+end
+
+local function executeAllLuaFilesInSrcFolderExceptMain()
+    local filepaths = {}
+    insertAllFilepathsInDirectoryToTable("src", filepaths)
+    for _, filepath in pairs(filepaths) do
+        if filepath ~= "src/scripts/main.lua" then
+            shell.run(filepath)
+        end
+    end
+end
 
 local function promptAndReadInputAndLoopUntilValid(prompt, validAnswersList)
     local validAnswer
@@ -37,11 +45,15 @@ local function runFirstTimeSetup()
 end
 
 local function start()
+    executeAllLuaFilesInSrcFolderExceptMain()
     -- Let reactors run for 1 second on world load.
     sleep(1)
 
     term.clear()
     term.setCursorPos(1,1)
+
+    ConfigUtil.writeAllConfigsAsDefaults()
+    ConfigUtil.readAllConfigs()
 
     if not UPDATE_CONFIG.FIRST_TIME_SETUP_COMPLETE then
         print("First time startup detected!")

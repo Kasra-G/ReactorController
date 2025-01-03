@@ -84,7 +84,7 @@ local function writeConfigAsDefault(configID)
     serializeTableAndWriteToFile(configData, DEFAULTS_PATH..configID..CONFIG_EXTENSION)
 end
 
-local function writeDefaultConfigs()
+local function writeAllConfigsAsDefaults()
     for configID, _ in pairs(CONFIGS) do
         writeConfigAsDefault(configID)
     end
@@ -107,10 +107,8 @@ local function resetConfig(configID)
     readConfig(configID)
 end
 
-writeDefaultConfigs()
-readAllConfigs()
-
 _G.ConfigUtil = {
+    writeAllConfigsAsDefaults = writeAllConfigsAsDefaults,
     writeAllConfigs = writeAllConfigs,
     readAllConfigs = readAllConfigs,
     writeConfig = writeConfig,

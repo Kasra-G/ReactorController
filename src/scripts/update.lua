@@ -5,6 +5,13 @@ local GITHUB_CONSTANTS = {
     BRANCH = "development",
 }
 
+local FILES_TO_DELETE_ON_UPDATE = {
+    "/src",
+    "/defaults",
+    "/state",
+    "startup",
+}
+
 local function getRemoteRepoSHA()
     local response = http.get("https://api.github.com/repos/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/commits/"..GITHUB_CONSTANTS.BRANCH)
     local responseJSON = response.readAll()
@@ -26,13 +33,6 @@ local function saveRepoSHA(repoSHA, path)
     local file = fs.open(path, "w")
     file.write(textutils.serializeJSON(repoSHA))
     file.close()
-end
-
-local function deleteExistingFiles()
-    fs.delete("/src")
-    fs.delete("/defaults")
-    fs.delete("/state")
-    fs.delete("startup")
 end
 
 local function downloadGitHubFileByPath(filepath)
@@ -86,7 +86,10 @@ end
 local function performUpdate()
     local remoteRepoSHA = getRemoteRepoSHA()
 
-    deleteExistingFiles()
+    for _, filepath in pairs(FILES_TO_DELETE_ON_UPDATE) do
+        fs.delete(filepath)
+    end
+
     downloadRemoteSrcDirectory(remoteRepoSHA)
     downloadGitHubFileByPath("startup")
     saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
