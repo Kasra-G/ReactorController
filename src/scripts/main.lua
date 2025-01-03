@@ -6,7 +6,7 @@ _G.GITHUB_CONFIG = {
 
 _G.UPDATE_CONFIG = {
     LOCAL_REPO_DETAILS_FILENAME = "/commit.txt",
-    AUTOUPDATE = true
+    AUTOUPDATE = false
 }
 
 shell.run("/src/classes/classes.lua")
@@ -26,6 +26,9 @@ if updateAvailable then
     if UPDATE_CONFIG.AUTOUPDATE then
         print("Automatic update is enabled! Updating...")
         _G.UpdateScript.performUpdate()
+        print("Finished update! Rebooting...")
+        sleep(1)
+        os.reboot()
     else
         print("Automatic update skipped because it's not enabled!")
     end

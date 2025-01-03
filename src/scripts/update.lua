@@ -1,23 +1,14 @@
-local cachedRemoteRepoDetails
-local function getRemoteRepoDetails()
+local function getRemoteRepoSHA()
     local response = http.get("https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/commits/"..GITHUB_CONFIG.BRANCH)
     local responseJSON = response.readAll()
-    cachedRemoteRepoDetails = textutils.unserialiseJSON(responseJSON)
-    return cachedRemoteRepoDetails
+    return textutils.unserialiseJSON(responseJSON).sha
 end
 
-local function getRemoteRepoDetailsCached()
-    if cachedRemoteRepoDetails == nil then
-        cachedRemoteRepoDetails = getRemoteRepoDetails()
-    end
-    return cachedRemoteRepoDetails
-end
-
-local function getLocalRepoDetails(path)
-    local file = fs.open(path, "r")
+local function getLocalRepoSHA(filepath)
+    local file = fs.open(filepath, "r")
     if file == nil then
         print("Local version file not found! Assuming there is an update available.")
-        return "{}"
+        return ""
     end
     local contents = file.readAll()
     file.close()
@@ -49,8 +40,7 @@ local function getGitHubTreeDetails(treeSHA)
     local endpoint = "https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/git/trees/"..treeSHA
     local response = http.get(endpoint)
     local contents = response.readAll()
-    local treeDetails = textutils.unserialiseJSON(contents)
-    return treeDetails
+    return textutils.unserialiseJSON(contents)
 end
 
 local function downloadGitHubTreeRecursively(path, treeSHA)
@@ -79,19 +69,19 @@ end
 --- Checks if there is an update to install
 ---@return boolean
 local function checkForUpdate()
-    local remoteRepoDetails = getRemoteRepoDetails()
-    local localRepoDetails = getLocalRepoDetails(UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
-    return localRepoDetails.sha ~= remoteRepoDetails.sha
+    local remoteRepoSHA = getRemoteRepoSHA()
+    local localRepoSHA = getLocalRepoSHA(UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    return localRepoSHA ~= remoteRepoSHA
 end
 
 --- Updates and saves the project. src and startup files are deleted and then redownloaded.
 local function performUpdate()
-    local remoteRepoDetails = getRemoteRepoDetailsCached()
+    local remoteRepoSHA = getRemoteRepoSHA()
 
     deleteExistingFiles()
-    downloadRemoteSrcDirectory(remoteRepoDetails.sha)
+    downloadRemoteSrcDirectory(remoteRepoSHA)
     downloadGitHubFileByPath("startup")
-    saveRepoDetails(remoteRepoDetails, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    saveRepoDetails(remoteRepoSHA, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
 end
 
 _G.UpdateScript = {
