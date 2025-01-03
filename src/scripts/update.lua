@@ -1,4 +1,9 @@
 local LOCAL_REPO_DETAILS_FILENAME = "/commit.txt"
+local GITHUB_CONSTANTS = {
+    OWNER = "Kasra-G",
+    REPO = "ReactorController",
+    BRANCH = "development",
+}
 
 local function getRemoteRepoSHA()
     local response = http.get("https://api.github.com/repos/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/commits/"..GITHUB_CONSTANTS.BRANCH)
