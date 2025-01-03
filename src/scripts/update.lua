@@ -15,10 +15,9 @@ local function getLocalRepoSHA(filepath)
     return textutils.unserialiseJSON(contents)
 end
 
-local function saveRepoDetails(repoDetails, path)
-    local serialized = textutils.serializeJSON(repoDetails)
+local function saveRepoSHA(repoSHA, path)
     local file = fs.open(path, "w")
-    file.write(serialized)
+    file.write(textutils.serializeJSON(repoSHA))
     file.close()
 end
 
@@ -81,11 +80,11 @@ local function performUpdate()
     deleteExistingFiles()
     downloadRemoteSrcDirectory(remoteRepoSHA)
     downloadGitHubFileByPath("startup")
-    saveRepoDetails(remoteRepoSHA, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    saveRepoSHA(remoteRepoSHA, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
 end
 
 _G.UpdateScript = {
     checkForUpdate = checkForUpdate,
     performUpdate = performUpdate,
-    saveRepoDetails = saveRepoDetails,
+    saveRepoDetails = saveRepoSHA,
 }
