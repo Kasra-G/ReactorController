@@ -6,7 +6,7 @@ _G.GITHUB_CONFIG = {
 
 _G.UPDATE_CONFIG = {
     LOCAL_REPO_DETAILS_FILENAME = "/commit.txt",
-    AUTOUPDATE = false
+    AUTOUPDATE = true
 }
 
 shell.run("/src/classes/classes.lua")
