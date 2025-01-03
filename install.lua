@@ -24,6 +24,7 @@ local function install()
     _G.UpdateScript.performUpdate()
     print("Download complete. Rebooting...")
     sleep(1)
+    os.reboot()
 end
 
 install()
