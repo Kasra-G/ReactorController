@@ -37,6 +37,9 @@ local function runFirstTimeSetup()
 end
 
 local function start()
+    -- Let reactors run for 1 second on world load.
+    sleep(1)
+
     term.clear()
     term.setCursorPos(1,1)
 
