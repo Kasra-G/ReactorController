@@ -1,4 +1,5 @@
 term.clear()
+term.setCursorPos(1,1)
 
 shell.run("/src/config/projectConfigs.lua")
 shell.run("/src/constants/projectConstants.lua")
