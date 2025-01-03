@@ -9,6 +9,10 @@ local Navbar = {
     ---@type Vector2
     size = nil,
 
+    handleEvents = function()
+        
+    end,
+
     ---comment
     ---@param self Navbar
     ---@param reactorStats ReactorStatistics
@@ -34,6 +38,6 @@ local function new(peripheralId)
     return monitorInstance
 end
 
-_G.Monitor = {
+_G.Navbar = {
     new = new
 }

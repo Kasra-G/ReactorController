@@ -1,35 +1,50 @@
 ---@class Monitor
 local Monitor = {
-
     navbar = nil,
     ---@type Page
     activePage = nil,
     ---@type string
     id = nil,
     ---@type table
-    peripheral = nil,
+    mon = nil,
     ---@type table
     touch = nil,
-    ---@type Vector2
-    size = nil,
-    ---@type integer
-    oo = nil,
-    ---@type integer
-    dim = nil,
+
+    ---@param self Monitor
+    ---@return Vector2
+    size = function(self)
+        return Vector2.new(self.mon.getSize())
+    end,
+
+    ---@param self Monitor
+    ---@return integer
+    dividerYCoord = function(self)
+        return self:size().y - 37
+    end,
+
+    ---@param self Monitor
+    ---@return integer
+    dividerXCoord = function(self)
+        return self:size().x - 31
+    end,
 
     ---comment
     ---@param self Monitor
     clear = function(self)
-        self.peripheral.setBackgroundColor(colors.black)
-        self.peripheral.clear()
-        self.peripheral.setTextScale(0.5)
-        self.peripheral.setCursorPos(1,1)
+        self.mon.setBackgroundColor(colors.black)
+        self.mon.clear()
+        self.mon.setTextScale(0.5)
+        self.mon.setCursorPos(1,1)
+    end,
+
+    handleEvents = function(self, event)
+
     end,
 
     ---@param self Monitor
     drawScene = function(self)
         if (invalidDim) then
-            self.peripheral.write("Invalid Monitor Dimensions")
+            self.mon.write("Invalid Monitor Dimensions")
             return
         end
 
@@ -54,13 +69,13 @@ local Monitor = {
 ---@param peripheralId string
 ---@return Monitor
 local function new(peripheralId)
-    local monitorPeripheral = peripheral.wrap(peripheralId)
-    local touch = _G.Touchpoint.new(peripheralId)
+    local mon = peripheral.wrap(peripheralId)
+    local touchHandler = _G.Touchpoint.new(peripheralId)
 
     local monitorInstance = {
         id = peripheralId,
-        peripheral = monitorPeripheral,
-        touch = touch,
+        mon = mon,
+        touch = touchHandler,
     }
 
 	setmetatable(monitorInstance, {__index = Monitor})

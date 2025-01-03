@@ -27,9 +27,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ]]
 
+
+
 local reactorVersion, reactor
-local mon, monSide
-local sizex, sizey, dividerXCoord, oo, offy
+local mon, monitorID
+local sizex, sizey, dividerXCoord, dividerYCoord, offy
 local btnOn, btnOff, invalidDim
 local minb, maxb
 local rod, rfLost
@@ -50,6 +52,7 @@ local averageCaseTemp = 0
 local averageRfLost = 0
 
 local MINIMUM_DIVIDER_X_VALUE = 3
+local MINIMUM_DIVIDER_Y_VALUE = 1
 
 -- table of which graphs to draw
 local graphsToDraw = {}
@@ -124,11 +127,8 @@ end
 
 --adds buttons
 local function addButtons()
-    if (sizey == 24) then
-        oo = 1
-    end
     local buttonSize = Vector2.new(8, 3)
-    local offsetOnOff = Vector2.new(dividerXCoord + 5, 3 + oo)
+    local offsetOnOff = Vector2.new(dividerXCoord + 5, 3 + dividerYCoord)
 
     addButton(
         t,
@@ -156,7 +156,7 @@ local function addButtons()
         t:toggleButton("Off", true)
     end
 
-    local offset = Vector2.new(dividerXCoord, oo)
+    local offset = Vector2.new(dividerXCoord, dividerYCoord)
 
     if (sizey > 24) then
         addButton(
@@ -200,7 +200,7 @@ end
 
 --Resets the monitor
 local function resetMon()
-    if (monSide == nil) then
+    if (monitorID == nil) then
         return
     end
     mon.setBackgroundColor(colors.black)
@@ -292,7 +292,7 @@ local function toggleGraph(name)
 end
 
 local function addGraphButtons()
-    offy = oo - 14
+    offy = dividerYCoord - 14
     local graphButtonSize = Vector2.new(20, 3)
     local graphButtonOffset = Vector2.new(dividerXCoord + 5, offy)
     for i,graphName in pairs(graphs) do
@@ -611,7 +611,7 @@ end
 
 --Draw a scene
 local function drawScene()
-    if (monSide == nil) then
+    if (monitorID == nil) then
         return
     end
     if (invalidDim) then
@@ -627,7 +627,7 @@ local function drawScene()
         drawGraphButtons(mon, offset, size)
     end
 
-    offset = Vector2.new(dividerXCoord + 1, oo + 1)
+    offset = Vector2.new(dividerXCoord + 1, dividerYCoord + 1)
     size = Vector2.new(30, 23)
     local drawBufferVisualization = true
     if (sizey <= 24) then
@@ -661,29 +661,31 @@ local function getAllPeripheralIdsForType(targetType)
 end
 
 ---@type table<string, Page>
-local monitors = {}
+-- local monitors = {}
 
 local function initMon2(id)
     local monitor = Monitor.new(id)
-    monSide = id
-    mon = monitor.peripheral
-    monitor:clear()
+    monitor.mon.clear()
     t = monitor.touch
 
-    sizex, sizey = mon.getSize()
-    oo = sizey - 37
-    dividerXCoord = sizex - 31
+    sizex, sizey = monitor.mon.getSize()
+    dividerYCoord = monitor:dividerYCoord()
+    dividerXCoord = monitor:dividerXCoord()
 
-    if (sizex == 36) then
+    if sizex <= 36 then
         dividerXCoord = MINIMUM_DIVIDER_X_VALUE
     end
+    if sizey <= 24 then
+        dividerYCoord = MINIMUM_DIVIDER_Y_VALUE
+    end
+
     displayingGraphMenu = pcall(function() addGraphButtons() end)
     _, invalidDim = pcall(function() addButtons() end)
 
     return monitor
 end
 
-local function updateMonitors()
+local function updateMonitors(monitors)
     for _, monitor in pairs(monitors) do
         ---@type ReactorStatistics
         local reactorStats = {}
@@ -691,16 +693,18 @@ local function updateMonitors()
     end
 end
 
-local function initMonitors()
-    monitors = {}
+local pretty = require "cc.pretty"
+
+local function discoverAndInitMonitors()
+    local monitors = {}
     local ids = getAllPeripheralIdsForType("monitor")
+    pretty.pretty_print(ids)
 
     for _, id in pairs(ids) do
         monitors[id] = initMon2(id)
     end
+    return monitors
 end
--- DELETE LATER!
-initMonitors()
 
 --returns the side that a given peripheral type is connected to
 local function getPeripheral(targetType)
@@ -714,29 +718,33 @@ end
 
 --Creates all the buttons and determines monitor size
 local function initMon()
-    monSide = getPeripheral("monitor")
-    if (monSide == nil or monSide == "") then
-        monSide = nil
+    monitorID = getPeripheral("monitor")
+    if (monitorID == nil or monitorID == "") then
+        monitorID = nil
         return
     end
 
-    local monitor = Monitor.new(monSide)
-    mon = monitor.peripheral
+    local monitor = Monitor.new(monitorID)
+    mon = monitor.mon
 
     if mon == nil then
-        monSide = nil
+        monitorID = nil
         return
     end
 
     resetMon()
-    t = Touchpoint.new(monSide)
+    t = Touchpoint.new(monitorID)
     sizex, sizey = mon.getSize()
-    oo = sizey - 37
+    dividerYCoord = sizey - 37
     dividerXCoord = sizex - 31
 
-    if (sizex == 36) then
+    if sizex <= 36 then
         dividerXCoord = MINIMUM_DIVIDER_X_VALUE
     end
+    if sizey <= 24 then
+        dividerYCoord = MINIMUM_DIVIDER_Y_VALUE
+    end
+
     displayingGraphMenu = pcall(function() addGraphButtons() end)
     _, invalidDim = pcall(function() addButtons() end)
 end
@@ -971,12 +979,12 @@ local function loadFromConfig()
         minb = 30
         rod = 80
         btnOn = false
-        if (monSide == nil) then
+        if (monitorID == nil) then
             btnOn = true
         end
         sizex, sizey = 100, 52
         dividerXCoord = sizex - 31
-        oo = sizey - 37
+        dividerYCoord = sizey - 37
         enableGraph("Energy Buffer")
         enableGraph("Control Level")
         enableGraph("Temperatures")
@@ -1040,7 +1048,7 @@ local function loop()
     while (true) do
         local event = { os.pullEvent() }
 
-        if monSide ~= nil then
+        if monitorID ~= nil then
             event = { t:handleEvents(unpack(event)) }
         end
 
@@ -1098,6 +1106,8 @@ function _G.main()
     print("Loading config...")
     loadFromConfig()
     print("Initializing monitor if connected...")
+
+    -- local monitors = discoverAndInitMonitors()
     initMon()
     print("Writing config to disk...")
     saveToConfig()

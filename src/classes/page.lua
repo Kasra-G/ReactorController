@@ -62,6 +62,6 @@ local function new(peripheralId)
     return monitorInstance
 end
 
-_G.Monitor = {
+_G.Page = {
     new = new
 }
