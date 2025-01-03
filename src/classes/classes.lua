@@ -124,10 +124,3 @@ _G.Vector2 = {
     zero = Vector2.new(0, 0),
     one = Vector2.new(1, 1),
 }
-
-local test = _G.Vector2.one + _G.Vector2.one
-print(test.x, test.y)
-test = test + 1
-print(test.x, test.y)
-test = test - 2
-print(test.x, test.y)

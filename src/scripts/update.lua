@@ -1,5 +1,7 @@
+local LOCAL_REPO_DETAILS_FILENAME = "/commit.txt"
+
 local function getRemoteRepoSHA()
-    local response = http.get("https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/commits/"..GITHUB_CONFIG.BRANCH)
+    local response = http.get("https://api.github.com/repos/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/commits/"..GITHUB_CONSTANTS.BRANCH)
     local responseJSON = response.readAll()
     return textutils.unserialiseJSON(responseJSON).sha
 end
@@ -27,7 +29,7 @@ local function deleteExistingFiles()
 end
 
 local function downloadGitHubFileByPath(filepath)
-    local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/refs/heads/"..GITHUB_CONFIG.BRANCH.."/"..filepath
+    local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/refs/heads/"..GITHUB_CONSTANTS.BRANCH.."/"..filepath
     local response = http.get(endpoint)
     local contents = response.readAll()
     local file = fs.open(filepath, "w")
@@ -36,7 +38,7 @@ local function downloadGitHubFileByPath(filepath)
 end
 
 local function getGitHubTreeDetails(treeSHA)
-    local endpoint = "https://api.github.com/repos/"..GITHUB_CONFIG.OWNER.."/"..GITHUB_CONFIG.REPO.."/git/trees/"..treeSHA
+    local endpoint = "https://api.github.com/repos/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/git/trees/"..treeSHA
     local response = http.get(endpoint)
     local contents = response.readAll()
     return textutils.unserialiseJSON(contents)
@@ -69,7 +71,7 @@ end
 ---@return boolean
 local function checkForUpdate()
     local remoteRepoSHA = getRemoteRepoSHA()
-    local localRepoSHA = getLocalRepoSHA(UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    local localRepoSHA = getLocalRepoSHA(LOCAL_REPO_DETAILS_FILENAME)
     return localRepoSHA ~= remoteRepoSHA
 end
 
@@ -80,7 +82,7 @@ local function performUpdate()
     deleteExistingFiles()
     downloadRemoteSrcDirectory(remoteRepoSHA)
     downloadGitHubFileByPath("startup")
-    saveRepoSHA(remoteRepoSHA, UPDATE_CONFIG.LOCAL_REPO_DETAILS_FILENAME)
+    saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
 end
 
 _G.UpdateScript = {

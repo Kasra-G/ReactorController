@@ -1,15 +1,6 @@
-_G.GITHUB_CONFIG = {
-    OWNER = "Kasra-G",
-    REPO = "ReactorController",
-    BRANCH = "development",
-}
-
-_G.UPDATE_CONFIG = {
-    LOCAL_REPO_DETAILS_FILENAME = "/commit.txt",
-    AUTOUPDATE = false
-}
-
 shell.run("/src/classes/classes.lua")
+shell.run("/src/config/projectConfigs.lua")
+shell.run("/src/constants/projectConstants.lua")
 shell.run("/src/util/draw.lua")
 shell.run("/src/classes/touchpoint.lua")
 shell.run("/src/classes/page.lua")
@@ -17,6 +8,7 @@ shell.run("/src/classes/navbar.lua")
 shell.run("/src/classes/monitor.lua")
 shell.run("/src/scripts/controller.lua")
 shell.run("/src/scripts/update.lua")
+shell.run("/src/util/config.lua")
 
 -- For now, do update check here
 local updateAvailable = _G.UpdateScript.checkForUpdate()
@@ -31,6 +23,7 @@ if updateAvailable then
         os.reboot()
     else
         print("Automatic update skipped because it's not enabled!")
+        sleep(1)
     end
 end
 -- For now, main() is in controller.lua
