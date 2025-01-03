@@ -25,6 +25,8 @@ end
 
 local function deleteExistingFiles()
     fs.delete("/src")
+    fs.delete("/defaults")
+    fs.delete("/state")
     fs.delete("startup")
 end
 
