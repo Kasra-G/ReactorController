@@ -3,7 +3,7 @@ local Page = {
     ---@type string
     name = nil,
     ---@type table
-    peripheral = nil,
+    mon = nil,
     ---@type table
     touch = nil,
     ---@type Vector2
@@ -11,24 +11,9 @@ local Page = {
     ---@type Vector2
     size = nil,
 
-
-    ---comment
     ---@param self Page
-    clear = function(self)
-        self.peripheral.setBackgroundColor(colors.black)
-        self.peripheral.clear()
-        self.peripheral.setTextScale(0.5)
-        self.peripheral.setCursorPos(1,1)
-    end,
-
-    ---@param self Page
-    drawScene = function(self)
-        if (invalidDim) then
-            self.peripheral.write("Invalid Monitor Dimensions")
-            return
-        end
-
-        if (displayingGraphMenu) then
+    draw = function(self)
+        if (_G.displayingGraphMenu) then
             drawGraphButtons()
         end
         drawControls()

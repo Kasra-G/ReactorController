@@ -45,7 +45,6 @@ _G.Graph = {
 ---@param mon table
 ---@param offset Vector2
 ---@param size Vector2
----@param statistics ReactorStatistics
 local function drawControlGraph(mon, offset, size, averageRod)
     local controlRodLength0To1 = averageRod / 100
     local controlRodMaxLengthOnScreen = size.y - 2

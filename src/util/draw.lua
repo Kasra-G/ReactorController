@@ -1,41 +1,16 @@
 
----comment
----@param mon table
----@param drawFunction function
-local function executeAndRestoreMonitorSettings(mon, drawFunction)
-    if (mon == nil) then
-        error("Error! Mon is nil")
-        return
-    end
-
-    local originalCursorPos = Vector2.new(mon.getCursorPos())
-    local originalBackgroundColor = mon.getBackgroundColor()
-    local originalTextColor = mon.getTextColor()
-
-    drawFunction()
-
-    mon.setCursorPos(originalCursorPos.x, originalCursorPos.y)
-    mon.setBackgroundColor(originalBackgroundColor)
-    mon.setTextColor(originalTextColor)
-end
-
----comment Draws a filled rectangle
+---comment Draws a rectangle with a border
 ---@param mon table
 ---@param color any
 ---@param offset Vector2
 ---@param size Vector2
 local function drawFilledRectangle(mon, color, offset, size)
-    executeAndRestoreMonitorSettings(
-        mon,
-        function ()
-            local horizLine = string.rep(" ", size.x)
-            mon.setBackgroundColor(color)
-            for i=0, size.y - 1 do
-                mon.setCursorPos(offset.x, offset.y + i)
-                mon.write(horizLine)
-            end
-        end
-    )
+    local old = term.redirect(mon)
+    size.x = math.max(size.x, 1)
+    size.y = math.max(size.y, 1)
+    local endCoord = offset + size - 1
+    paintutils.drawFilledBox(offset.x, offset.y, endCoord.x, endCoord.y, color)
+    term.redirect(old)
 end
 
 ---comment Draws a rectangle with a fill color and border
@@ -44,9 +19,14 @@ end
 ---@param outerColor any
 ---@param offset Vector2
 ---@param size Vector2
-local function drawRectangle(mon, innerColor, outerColor, offset, size)
-    drawFilledRectangle(mon, outerColor, offset, size)
-    drawFilledRectangle(mon, innerColor, offset + 1, size - 2)
+local function drawFilledBoxWithBorder(mon, innerColor, outerColor, offset, size)
+    local old = term.redirect(mon)
+    size.x = math.max(size.x, 1)
+    size.y = math.max(size.y, 1)
+    local endCoord = offset + size - 1
+    paintutils.drawBox(offset.x, offset.y, endCoord.x, endCoord.y, outerColor)
+    paintutils.drawFilledBox(offset.x + 1, offset.y + 1, endCoord.x - 1, endCoord.y - 1, innerColor)
+    term.redirect(old)
 end
 
 ---comment Draws text on the screen
@@ -56,19 +36,13 @@ end
 ---@param backgroundColor any
 ---@param textColor any
 local function drawText(mon, text, pos, backgroundColor, textColor)
-    executeAndRestoreMonitorSettings(
-        mon,
-        function ()
-            mon.setCursorPos(pos.x, pos.y)
-            mon.setBackgroundColor(backgroundColor)
-            mon.setTextColor(textColor)
-            mon.write(text)
-        end
-    )
+    mon.setCursorPos(pos.x, pos.y)
+    local len = #text
+    mon.blit(text, string.rep(colors.toBlit(textColor), len), string.rep(colors.toBlit(backgroundColor), len))
 end
 
 _G.DrawUtil = {
-    drawRectangle = drawRectangle,
+    drawRectangle = drawFilledBoxWithBorder,
     drawFilledRectangle = drawFilledRectangle,
     drawText = drawText,
 }

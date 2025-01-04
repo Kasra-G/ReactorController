@@ -54,27 +54,28 @@ end
 
 ---@class Touchpoint
 local Touchpoint = {
-	draw = function(self)
-		local old = term.redirect(self.mon)
-		term.setTextColor(colors.white)
-		term.setBackgroundColor(colors.black)
-		for name, buttonData in pairs(self.buttonList) do
-			if buttonData.active then
-				term.setBackgroundColor(buttonData.activeColor)
-				term.setTextColor(buttonData.activeText)
-			else
-				term.setBackgroundColor(buttonData.inactiveColor)
-				term.setTextColor(buttonData.inactiveText)
-			end
-			for i = buttonData.yMin, buttonData.yMax do
-				term.setCursorPos(buttonData.xMin, i)
-				term.write(buttonData.label[i - buttonData.yMin + 1])
-			end
+	drawButton = function(self, buttonName)
+		self.mon.setTextColor(colors.white)
+		self.mon.setBackgroundColor(colors.black)
+		local buttonData = self.buttonList[buttonName]
+		if buttonData == nil then
+			error("button does not exist")
 		end
-		if old then
-			term.redirect(old)
+		if buttonData.active then
+			self.mon.setBackgroundColor(buttonData.activeColor)
+			self.mon.setTextColor(buttonData.activeText)
 		else
-			term.restore()
+			self.mon.setBackgroundColor(buttonData.inactiveColor)
+			self.mon.setTextColor(buttonData.inactiveText)
+		end
+		for i = buttonData.yMin, buttonData.yMax do
+			self.mon.setCursorPos(buttonData.xMin, i)
+			self.mon.write(buttonData.label[i - buttonData.yMin + 1])
+		end
+	end,
+	drawAllButtons = function(self)
+		for name, _ in pairs(self.buttonList) do
+			self:drawButton(name)
 		end
 	end,
 	add = function(self, name, func, xMin, yMin, xMax, yMax, inactiveColor, activeColor, inactiveText, activeText)
@@ -126,8 +127,8 @@ local Touchpoint = {
 	end,
 	run = function(self)
 		while true do
-			self:draw()
-			local event = {self:handleEvents(os.pullEvent(self.side == "term" and "mouse_click" or "monitor_touch"))}
+			self:drawAllButtons()
+			local event = {self:handleEvents(os.pullEvent(self.id == "term" and "mouse_click" or "monitor_touch"))}
 			if event[1] == "button_click" then
 				self.buttonList[event[2]].func()
 			end
@@ -136,17 +137,21 @@ local Touchpoint = {
 	handleEvents = function(self, ...)
 		local event = {...}
 		if #event == 0 then event = {os.pullEvent()} end
-		if (self.side == "term" and event[1] == "mouse_click") or (self.side ~= "term" and event[1] == "monitor_touch" and event[2] == self.side) then
+		if (self.id == "term" and event[1] == "mouse_click") or (self.id ~= "term" and event[1] == "monitor_touch" and event[2] == self.id) then
 			local clicked = self.clickMap[event[3]][event[4]]
 			if clicked and self.buttonList[clicked] then
-				return "button_click", clicked
+				return "button_click", self.id, clicked
 			end
 		end
 		return unpack(event)
 	end,
-	toggleButton = function(self, name, noDraw)
+	setButton = function(self, name, state)
+		self.buttonList[name].active = state
+		self:drawButton(name)
+	end,
+	toggleButton = function(self, name)
 		self.buttonList[name].active = not self.buttonList[name].active
-		if not noDraw then self:draw() end
+		self:drawButton(name)
 	end,
 	flash = function(self, name, duration)
 		self:toggleButton(name)
@@ -165,14 +170,14 @@ local Touchpoint = {
 				end
 			end
 		end
-		self:draw()
+		self:drawAllButtons()
 	end,
 }
 
-local function new(monSide)
+local function new(id, mon)
 	local touchpointInstance = {
-		side = monSide or "term",
-		mon = monSide and peripheral.wrap(monSide) or term.current(),
+		id = id,
+		mon = mon,
 		buttonList = {},
 		clickMap = {},
 	}
