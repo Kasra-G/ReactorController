@@ -49,9 +49,10 @@ _G.fuelUsage = 0
 _G.waste = 0
 _G.capacity = 1
 
-_G.SECONDS_TO_AVERAGE = 2
+_G.SECONDS_TO_AVERAGE = 0.5
 
 _G.averageStoredThisTick = 0
+_G.averageStoredLastTick = 0
 _G.averageLastRFT = 0
 _G.averageRod = 0
 _G.averageFuelUsage = 0
@@ -73,7 +74,20 @@ end
 local function setRods(level)
     level = math.max(level, 0)
     level = math.min(level, 100)
-    _G.reactor.setAllControlRodLevels(level)
+    local count = reactor.getNumberOfControlRods()
+
+    local numberToAddOneLevelTo = math.floor((level - math.floor(level)) * count + 0.5)
+
+    local levelsMap = {}
+    for idx0, _ in pairs(reactor.getControlRodsLevels()) do
+        local rodLevel = math.floor(level)
+        if numberToAddOneLevelTo > 0 then
+            rodLevel = rodLevel + 1
+            numberToAddOneLevelTo = numberToAddOneLevelTo - 1
+        end
+        levelsMap[idx0] = rodLevel
+    end
+    _G.reactor.setControlRodsLevels(levelsMap)
 end
 
 local function lerp(start, finish, t)
@@ -126,13 +140,13 @@ local function updateRods()
     if (not _G.btnOn) then
         return
     end
-    local currentRF = _G.storedLastTick
+    local currentRF = _G.averageStoredLastTick
     local diffb = _G.maxb - _G.minb
     local minRF = _G.minb / 100 * _G.capacity
     local diffRF = diffb / 100 * _G.capacity
     local diffr = diffb / 100
-    local targetRFT = _G.rfLost
-    local currentRFT = _G.lastRFT
+    local targetRFT = _G.averageRfLost
+    local currentRFT = _G.averageLastRFT
     local targetRF = diffRF / 2 + minRF
 
     pid.setpointRFT = targetRFT
@@ -150,16 +164,6 @@ local function updateRods()
     local combinedError = W_RFT * errorRFT + W_RF * errorRF
     local error = combinedError
     local rftRodLevel = iteratePID(pid, error)
-    
-    -- if rftRodLevel == 0 then
-    --     pretty.pretty_print({
-    --         newRod = rftRodLevel,
-    --         pid = pid,
-    --         error = error,
-    --         currentRFT = currentRFT,
-    --         targetRFT = targetRFT,
-    --     })
-    -- end
 
     -- Set control rod levels
     setRods(rftRodLevel)
@@ -208,7 +212,7 @@ local function updateStats()
         _G.storedThisTick = bat.energyStored
         _G.lastRFT = bat.energyProducedLastTick
         _G.capacity = bat.energyCapacity
-        _G.rod = _G.reactor.getControlRodLevel(0)
+        _G.rod = calculateAverage(_G.reactor.getControlRodsLevels())
         _G.fuelUsage = fuel.fuelConsumedLastTick / 1000
         _G.waste = _G.reactor.getWasteAmount()
         _G.fuelTemp = _G.reactor.getFuelTemperature()
@@ -223,38 +227,7 @@ local function updateStats()
         _G.fuelTemp = _G.reactor.fuelTemperature()
         _G.caseTemp = _G.reactor.casingTemperature()
     end
-    _G.rfLost = _G.lastRFT + _G.storedLastTick - _G.storedThisTick
-    -- Add the values to the arrays
-    table.insert(storedThisTickValues, _G.storedThisTick)
-    table.insert(lastRFTValues, _G.lastRFT)
-    table.insert(rodValues, _G.rod)
-    table.insert(fuelUsageValues, _G.fuelUsage)
-    table.insert(wasteValues, _G.waste)
-    table.insert(fuelTempValues, _G.fuelTemp)
-    table.insert(caseTempValues, _G.caseTemp)
-    table.insert(rfLostValues, _G.rfLost)
-
-    local maxIterations = 20 * _G.SECONDS_TO_AVERAGE
-    while #storedThisTickValues > maxIterations do
-        table.remove(storedThisTickValues, 1)
-        table.remove(lastRFTValues, 1)
-        table.remove(rodValues, 1)
-        table.remove(fuelUsageValues, 1)
-        table.remove(wasteValues, 1)
-        table.remove(fuelTempValues, 1)
-        table.remove(caseTempValues, 1)
-        table.remove(rfLostValues, 1)
-    end
-
-    -- Calculate running averages
-    _G.averageStoredThisTick = calculateAverage(storedThisTickValues)
-    _G.averageLastRFT = calculateAverage(lastRFTValues)
-    _G.averageRod = calculateAverage(rodValues)
-    _G.averageFuelUsage = calculateAverage(fuelUsageValues)
-    _G.averageWaste = calculateAverage(wasteValues)
-    _G.averageFuelTemp = calculateAverage(fuelTempValues)
-    _G.averageCaseTemp = calculateAverage(caseTempValues)
-    _G.averageRfLost = calculateAverage(rfLostValues)
+    _G.rfLost = math.floor(_G.lastRFT + _G.storedLastTick - _G.storedThisTick + 0.5)
 end
 
 --Initialize variables from either a config file or the defaults
@@ -377,42 +350,81 @@ local function eventListener()
     end
 end
 
+local function updateAverages()
+    table.insert(storedThisTickValues, _G.storedThisTick)
+    table.insert(lastRFTValues, _G.lastRFT)
+    table.insert(rodValues, _G.rod)
+    table.insert(fuelUsageValues, _G.fuelUsage)
+    table.insert(wasteValues, _G.waste)
+    table.insert(fuelTempValues, _G.fuelTemp)
+    table.insert(caseTempValues, _G.caseTemp)
+    table.insert(rfLostValues, _G.rfLost)
+
+    local maxIterations = 20 * _G.SECONDS_TO_AVERAGE
+    while #storedThisTickValues > maxIterations do
+        table.remove(storedThisTickValues, 1)
+        table.remove(lastRFTValues, 1)
+        table.remove(rodValues, 1)
+        table.remove(fuelUsageValues, 1)
+        table.remove(wasteValues, 1)
+        table.remove(fuelTempValues, 1)
+        table.remove(caseTempValues, 1)
+        table.remove(rfLostValues, 1)
+    end
+
+    -- Calculate running averages
+    _G.averageStoredThisTick = calculateAverage(storedThisTickValues)
+    _G.averageLastRFT = calculateAverage(lastRFTValues)
+    _G.averageRod = calculateAverage(rodValues)
+    _G.averageFuelUsage = calculateAverage(fuelUsageValues)
+    _G.averageWaste = calculateAverage(wasteValues)
+    _G.averageFuelTemp = calculateAverage(fuelTempValues)
+    _G.averageCaseTemp = calculateAverage(caseTempValues)
+    _G.averageRfLost = calculateAverage(rfLostValues)
+end
+
 
 -- Main loop, handles all the events
 local function loop()
-    local pretty = require "cc.pretty"
-    os.startTimer(0)
+    ::begin::
 
-    local lastTime = os.time() * 1000
+    local curTime = math.floor(os.clock() * 20)
+    local lastTime = curTime
+    local maxRetries = 10
+    local tries = 0
+    local cur = {}
+    local last = {}
+    sleep(0)
     while true do
-        os.pullEvent("timer")
-        local curTime = math.floor(os.time() * 1000 + 0.5)
-        if curTime <= lastTime then
-            goto continue
+        tries = 0
+        curTime = math.floor(os.clock() * 20)
+        if curTime ~= lastTime + 1 then
+            print("lastTime "..lastTime..", curTime "..curTime)
+            goto begin
         end
 
-        term.setCursorPos(41,1)
-        term.write("Tick: "..string.format("%5s", os.time() * 1000))
-        _G.storedLastTick = _G.storedThisTick
-        _G.lastLastRFT = math.floor(_G.lastRFT + 0.5)
-
-        
         updateStats()
-        while _G.lastRFT == 0 and _G.lastLastRFT ~= 0 do
-            updateStats()
+        cur.rft = _G.reactor.getEnergyProducedLastTick()
+        cur.energy = _G.reactor.getEnergyStats().energyStored
+        if last.rft ~= nil and last.energy ~= nil then
+            while cur.rft == last.rft and cur.energy == last.energy or tries <= maxRetries do
+                updateStats()
+                cur.rft = _G.reactor.getEnergyProducedLastTick()
+                cur.energy = _G.reactor.getEnergyStats().energyStored
+                tries = tries + 1
+            end
+            updateAverages()
+            updateRods()
+            redrawMonitors()
+            _G.averageStoredLastTick = _G.averageStoredThisTick
         end
 
-
-        updateRods()
-        -- if os.time() * 1000 % 2 == 0 then
-            -- print(os.time() * 1000)
-            redrawMonitors()
-        -- end
-
-        -- redrawTick(event)
+        _G.storedLastTick = _G.storedThisTick
+        _G.lastRFTPrev = _G.lastRFT
+        last.rft = cur.rft
+        last.energy = cur.energy
         lastTime = curTime
-        ::continue::
-        os.startTimer(0)
+        sleep(0)
     end
 end
 
@@ -459,10 +471,6 @@ function _G.main()
     end
 
     print("Reactor detected!")
-
-    -- print("Loading config...")
-    -- loadFromConfig()
-    -- print("Initializing monitor if connected...")
 
     _G.maxb = 70
     _G.minb = 30

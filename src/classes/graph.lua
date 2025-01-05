@@ -59,7 +59,7 @@ local function drawControlGraph(mon, offset, size, averageRod)
         colors.orange
 
     )
-    DrawUtil.drawRectangle(
+    DrawUtil.drawFilledBoxWithBorder(
         mon,
         colors.yellow,
         colors.gray,

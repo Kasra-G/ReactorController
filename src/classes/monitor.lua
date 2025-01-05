@@ -95,7 +95,6 @@ local function addReactorControlButtons(touch, offset, shouldDrawBufferVisualiza
 
     addButton(touch, "On", turnOn, offsetOnOff, buttonSize, colors.red, colors.lime)
     addButton(touch, "Off", turnOff, offsetOnOff + Vector2.new(12, 0), buttonSize, colors.red, colors.lime)
-
     if shouldDrawBufferVisualization then
         addButton(touch, "+ 10", minAdd10, offset + Vector2.new(5, 14), buttonSize, colors.purple, colors.pink)
         addButton(touch, " + 10 ", maxAdd10, offset + Vector2.new(17, 14), buttonSize, colors.magenta, colors.pink)
@@ -175,7 +174,7 @@ end
 
 local function drawGraphButtons(mon, offset, size)
 
-    DrawUtil.drawRectangle(mon, colors.black, colors.orange, offset, size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.orange, offset, size)
     local textPos = offset + Vector2.new(4, 0)
     DrawUtil.drawText(mon, " Graph Controls ", textPos, colors.black, colors.orange
     )
@@ -183,7 +182,7 @@ end
 
 local function drawEnergyBuffer(mon, offset, graphSize, drawPercentLabelOnRight)
     DrawUtil.drawText(mon, "Energy Buffer", offset, colors.black, colors.orange)
-    DrawUtil.drawRectangle(mon, colors.red, colors.gray, offset + Vector2.new(0, 1), graphSize)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.red, colors.gray, offset + Vector2.new(0, 1), graphSize)
 
     local energyBufferMaxHeight = graphSize.y - 2
     local unitEnergyLevel = getPercPower() / 100
@@ -239,24 +238,24 @@ local function drawControlGraph(mon, offset, size, averageRod)
     local controlRodPixelHeight = math.ceil(unitRodLevel * controlRodMaxPixelHeight)
 
     DrawUtil.drawText(mon, "Control Level", offset + Vector2.new(1, 0), colors.black, colors.orange)
-    DrawUtil.drawRectangle(mon, colors.yellow, colors.gray, offset + Vector2.new(0, 1), size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.yellow, colors.gray, offset + Vector2.new(0, 1), size)
     DrawUtil.drawFilledRectangle(mon, colors.white, offset + Vector2.new(3, 2), Vector2.new(9, controlRodPixelHeight))
 
     local controlRodLevelTextPos, color
     if controlRodPixelHeight > 0 then
         color = colors.white
-        controlRodLevelTextPos = offset + Vector2.new(3, 1 + controlRodPixelHeight)
+        controlRodLevelTextPos = offset + Vector2.new(4, 1 + controlRodPixelHeight)
     else
         color = colors.yellow
-        controlRodLevelTextPos = offset + Vector2.new(3, 2)
+        controlRodLevelTextPos = offset + Vector2.new(4, 2)
     end
 
-    DrawUtil.drawText(mon, string.format(" %6.2f%% ", averageRod), controlRodLevelTextPos, color, colors.black)
+    DrawUtil.drawText(mon, string.format("%6.2f%%", averageRod), controlRodLevelTextPos, color, colors.black)
 end
 
 local function drawTemperatures(mon, offset, size)
 
-    DrawUtil.drawRectangle(mon, colors.black, colors.gray, offset + Vector2.new(1, 1), size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.gray, offset + Vector2.new(1, 1), size)
 
     local CASE_TEMP_COLOR = colors.lightBlue
     local FUEL_TEMP_COLOR = colors.magenta
@@ -329,7 +328,7 @@ local function drawGraph(mon, dividerXCoord, name, graphOffset, graphSize)
 end
 
 local function drawGraphs(mon, monitorSize, graphSlots, dividerXCoord, offset, size)
-    DrawUtil.drawRectangle(mon, colors.black, colors.lightBlue, offset, size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.lightBlue, offset, size)
     local label = " Reactor Graphs "
     DrawUtil.drawText(
         mon,
@@ -353,7 +352,7 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
         size = Vector2.new(30, 9)
     end
 
-    DrawUtil.drawRectangle(mon, colors.black, colors.cyan, offset, size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.cyan, offset, size)
     DrawUtil.drawText(mon, " Reactor Controls ", offset + Vector2.new(4, 0), colors.black, colors.cyan)
 
     local reactorOnOffLabel = "Reactor "..(_G.btnOn and "Online" or "Offline")
@@ -394,7 +393,7 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
 end
 
 local function drawStatistics(mon, offset, size)
-    DrawUtil.drawRectangle(mon, colors.black, colors.blue, offset, size)
+    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.blue, offset, size)
     DrawUtil.drawText(mon, " Reactor Statistics ", offset + Vector2.new(4, 0), colors.black, colors.blue
     )
 
@@ -524,7 +523,6 @@ local Monitor = {
     clear = function(self)
         self.mon.setBackgroundColor(colors.black)
         self.mon.clear()
-        self.monPeripheral.setTextScale(0.5)
         self.mon.setCursorPos(1,1)
     end,
 
@@ -540,12 +538,12 @@ local Monitor = {
     end,
     
     handleResize = function(self)
+        self.monPeripheral.setTextScale(0.5)
         self.size = Vector2.new(self.monPeripheral.getSize())
         self.mon = window.create(self.monPeripheral, 1, 1, self.size.x, self.size.y, false)
         self.dividerXCoord = calculateDividerXCoord(self.size.x)
         self.dividerYCoord = calculateDividerYCoord(self.size.y)
         self.touch = _G.Touchpoint.new(self.id, self.mon)
-        self:clear()
         
         -- print(self.id)
         self.drawOptions = getDrawOptions(self.size)
