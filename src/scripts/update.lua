@@ -41,6 +41,7 @@ local function downloadGitHubFileByPath(filepath, tempFolder)
     local contents = response.readAll()
     local file
     if tempFolder then
+        print(tempFolder)
         file = fs.open(fs.combine(tempFolder, filepath), "w")
     else
         file = fs.open(filepath, "w")
