@@ -18,11 +18,17 @@ end
 --- Download the update script and reboot
 local function install()
     local updateScriptPath = "src/scripts/update.lua"
-    downloadGitHubFileByPath(updateScriptPath)
+    local succes, err = pcall(function() downloadGitHubFileByPath(updateScriptPath) end)
+    if not succes then
+        error("Failed to install the script! Do you have internet access?")
+    end
     shell.run(updateScriptPath)
     print("Downloading files!")
-    _G.UpdateScript.performUpdate()
-    print("Download complete. Rebooting...")
+    local success = _G.UpdateScript.performUpdate()
+    if not success then
+        error("Failed to install the script! Do you have internet access?")
+    end
+    print("Files downloaded successfully. Rebooting...")
     sleep(1)
     os.reboot()
 end

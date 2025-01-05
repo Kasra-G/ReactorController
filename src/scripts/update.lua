@@ -77,22 +77,46 @@ end
 --- Checks if there is an update to install
 ---@return boolean
 local function checkForUpdate()
-    local remoteRepoSHA = getRemoteRepoSHA()
+    local remoteRepoSHA
+    local success, err = pcall(function() remoteRepoSHA = getRemoteRepoSHA() end)
+    if not success then
+        print("Could not check for update with error", err)
+        return false
+    end
     local localRepoSHA = getLocalRepoSHA(LOCAL_REPO_DETAILS_FILENAME)
     return localRepoSHA ~= remoteRepoSHA
 end
 
 --- Updates and saves the project. src and startup files are deleted and then redownloaded.
 local function performUpdate()
-    local remoteRepoSHA = getRemoteRepoSHA()
-
-    for _, filepath in pairs(FILES_TO_DELETE_ON_UPDATE) do
-        fs.delete(filepath)
+    local remoteRepoSHA
+    local success, err = pcall(function() remoteRepoSHA = getRemoteRepoSHA() end)
+    if not success then
+        print("Could not reach remote repository with error", err)
+        return false
     end
 
-    downloadRemoteSrcDirectory(remoteRepoSHA)
-    downloadGitHubFileByPath("startup")
-    saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
+    local tempFolder = "temp"
+    for _, filepath in pairs(FILES_TO_DELETE_ON_UPDATE) do
+        fs.move(filepath, fs.combine(tempFolder, filepath))
+    end
+
+    success, err = pcall(
+        function()
+            downloadRemoteSrcDirectory(remoteRepoSHA)
+            downloadGitHubFileByPath("startup")
+        end
+    )
+    if success then
+        saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
+    else
+        print("Repo download failed with error", err)
+        for _, filepath in pairs(FILES_TO_DELETE_ON_UPDATE) do
+            fs.move(fs.combine(tempFolder, filepath), filepath)
+        end
+    end
+    fs.delete("temp")
+    return success
 end
 
 _G.UpdateScript = {
