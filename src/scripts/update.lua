@@ -35,17 +35,15 @@ local function saveRepoSHA(repoSHA, path)
     file.close()
 end
 
-local function downloadGitHubFileByPath(filepath, tempFolder)
+local function downloadGitHubFileByPath(filepath, tempFoldername)
+    if tempFoldername == nil then
+        tempFoldername = ""
+    end
+
     local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/refs/heads/"..GITHUB_CONSTANTS.BRANCH.."/"..filepath
     local response = http.get(endpoint)
     local contents = response.readAll()
-    local file
-    if tempFolder then
-        print(tempFolder)
-        file = fs.open(fs.combine(tempFolder, filepath), "w")
-    else
-        file = fs.open(filepath, "w")
-    end
+    local file = fs.open(fs.combine(tempFoldername, filepath), "w")
     file.write(contents)
     file.close()
     print("File", filepath, "downloaded!")
@@ -58,25 +56,25 @@ local function getGitHubTreeDetails(treeSHA)
     return textutils.unserialiseJSON(contents)
 end
 
-local function downloadGitHubTreeRecursively(path, treeSHA, tempFolder)
+local function downloadGitHubTreeRecursively(path, treeSHA, tempFoldername)
     local treeDetails = getGitHubTreeDetails(treeSHA)
     for _, treeEntry in pairs(treeDetails.tree) do
         local subfilePath = path.."/"..treeEntry.path
         if treeEntry.type == "tree" then
-            downloadGitHubTreeRecursively(subfilePath, treeEntry.sha, tempFolder)
+            downloadGitHubTreeRecursively(subfilePath, treeEntry.sha, tempFoldername)
         elseif treeEntry.type == "blob" then
-            downloadGitHubFileByPath(subfilePath, tempFolder)
+            downloadGitHubFileByPath(subfilePath, tempFoldername)
         end
     end
 end
 
-local function downloadRemoteSrcDirectory(remoteRepoRootTreeSHA, tempFolder)
+local function downloadRemoteSrcDirectory(remoteRepoRootTreeSHA, tempFoldername)
     local remoteRepoRootTreeDetails = getGitHubTreeDetails(remoteRepoRootTreeSHA)
     local srcDirectoryName = "src"
 
     for _, treeEntry in pairs(remoteRepoRootTreeDetails.tree) do
         if treeEntry.path == srcDirectoryName and treeEntry.type == "tree" then
-            downloadGitHubTreeRecursively(srcDirectoryName, treeEntry.sha, tempFolder)
+            downloadGitHubTreeRecursively(srcDirectoryName, treeEntry.sha, tempFoldername)
         end
     end
 end
@@ -103,28 +101,28 @@ local function performUpdate()
         return false
     end
 
-    local tempFolder = "temp"
+    local tempFoldername = "temp"
 
     success, err = pcall(
         function()
-            downloadRemoteSrcDirectory(remoteRepoSHA, tempFolder)
-            downloadGitHubFileByPath("startup", tempFolder)
+            downloadRemoteSrcDirectory(remoteRepoSHA, tempFoldername)
+            downloadGitHubFileByPath("startup", tempFoldername)
         end
     )
     if not success then
         print("Repo download failed with error", err)
-        fs.delete(tempFolder)
+        fs.delete(tempFoldername)
         return false
     end
     for _, filepath in pairs(FILES_TO_DELETE_ON_UPDATE) do
         fs.delete(filepath)
     end
-    for _, filename in pairs(fs.list(tempFolder)) do
-        fs.move(fs.combine(tempFolder, filename), filename)
+    for _, filename in pairs(fs.list(tempFoldername)) do
+        fs.move(fs.combine(tempFoldername, filename), filename)
     end
 
     saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
-    fs.delete(tempFolder)
+    fs.delete(tempFoldername)
     return success
 end
 
