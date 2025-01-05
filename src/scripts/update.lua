@@ -42,6 +42,7 @@ local function downloadGitHubFileByPath(filepath)
     local file = fs.open(filepath, "w")
     file.write(contents)
     file.close()
+    print("File", filepath, "downloaded!")
 end
 
 local function getGitHubTreeDetails(treeSHA)
