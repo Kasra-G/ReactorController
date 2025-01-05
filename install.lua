@@ -23,7 +23,6 @@ local function install()
         error("Failed to install the script with error", err)
     end
     shell.run(updateScriptPath)
-    print("Downloading files!")
     local success = _G.UpdateScript.performUpdate()
     if not success then
         error("Failed to install the script! Do you have internet access?")

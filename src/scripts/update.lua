@@ -105,9 +105,8 @@ local function performUpdate()
 
     success, err = pcall(
         function()
-            tempFoldername = "temp"
-            downloadRemoteSrcDirectory(remoteRepoSHA, tempFoldername)
-            downloadGitHubFileByPath("startup", tempFoldername)
+            downloadRemoteSrcDirectory(remoteRepoSHA, "temp")
+            downloadGitHubFileByPath("startup", "temp")
         end
     )
     if not success then
