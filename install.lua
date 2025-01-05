@@ -6,13 +6,18 @@ local GITHUB_CONSTANTS = {
     BRANCH = "development",
 }
 
-local function downloadGitHubFileByPath(filepath)
+local function downloadGitHubFileByPath(filepath, tempFoldername)
+    if tempFoldername == nil then
+        tempFoldername = ""
+    end
+
     local endpoint = "https://raw.githubusercontent.com/"..GITHUB_CONSTANTS.OWNER.."/"..GITHUB_CONSTANTS.REPO.."/refs/heads/"..GITHUB_CONSTANTS.BRANCH.."/"..filepath
     local response = http.get(endpoint)
     local contents = response.readAll()
-    local file = fs.open(filepath, "w")
+    local file = fs.open(fs.combine(tempFoldername, filepath), "w")
     file.write(contents)
     file.close()
+    print("File", filepath, "downloaded!")
 end
 
 --- Download the update script and reboot
