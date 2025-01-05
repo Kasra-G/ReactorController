@@ -41,9 +41,9 @@ local function downloadGitHubFileByPath(filepath, tempFolder)
     local contents = response.readAll()
     local file
     if tempFolder then
-        file = fs.open(filepath, "w")
-    else
         file = fs.open(fs.combine(tempFolder, filepath), "w")
+    else
+        file = fs.open(filepath, "w")
     end
     file.write(contents)
     file.close()
@@ -121,7 +121,7 @@ local function performUpdate()
     for _, filename in pairs(fs.list(tempFolder)) do
         fs.move(fs.combine(tempFolder, filename), filename)
     end
-    
+
     saveRepoSHA(remoteRepoSHA, LOCAL_REPO_DETAILS_FILENAME)
     fs.delete(tempFolder)
     return success
