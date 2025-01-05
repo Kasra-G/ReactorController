@@ -62,8 +62,7 @@ local function start()
         ConfigUtil.writeAllConfigs()
     end
 
-    -- local updateAvailable = _G.UpdateScript.checkForUpdate()
-    local updateAvailable = false
+    local updateAvailable = _G.UpdateScript.checkForUpdate()
     if updateAvailable then
         print("Update available!")
         -- Set some state variable somewhere to tell us an update is available
