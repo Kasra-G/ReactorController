@@ -254,7 +254,7 @@ end
 
 local function drawTemperatures(mon, offset, size)
 
-    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.gray, offset + Vector2.new(1, 1), size)
+    DrawUtil.drawBox(mon, colors.gray, offset + Vector2.one, size)
 
     local CASE_TEMP_COLOR = colors.lightBlue
     local FUEL_TEMP_COLOR = colors.magenta
@@ -391,50 +391,35 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
     DrawUtil.drawText(mon, "Max", offset + Vector2.new(19, 13), colors.black, colors.purple)
 end
 
+
+local statsList = {
+    { message = "", color = colors.green },
+    { message = "", color = colors.green },
+    { message = "", color = colors.green },
+    { message = "", color = colors.green },
+    { message = "", color = colors.green },
+}
+
 local function drawStatistics(mon, offset, size)
     DrawUtil.drawBox(mon, colors.blue, offset, size)
-    DrawUtil.drawText(mon, " Reactor Statistics ", offset + Vector2.new(4, 0), colors.black, colors.blue
-    )
+    DrawUtil.drawText(mon, " Reactor Statistics ", offset + Vector2.new(4, 0), colors.black, colors.blue)
+    statsList[1].message = "Generating : "..format(_G.averageLastRFT).."RF/t"
+    statsList[1].color = colors.green
+    statsList[2].message = "RF Drain   "..(_G.averageStoredThisTick <= _G.averageLastRFT and "> " or ": ")..format(_G.averageRfLost).."RF/t"
+    statsList[2].color = colors.red
+    statsList[3].message = "Efficiency : "..format(getEfficiency()).."RF/B"
+    statsList[3].color = colors.green
+    statsList[4].message = "Fuel Usage : "..format(_G.averageFuelUsage).."B/t"
+    statsList[4].color = colors.green
+    statsList[5].message = "Waste      : "..string.format("%7d mB", _G.waste)
+    statsList[5].color = colors.green
 
-    DrawUtil.drawText(
-        mon,
-        "Generating : "..format(_G.averageLastRFT).."RF/t",
-        offset + Vector2.new(2, 2),
-        colors.black,
-        colors.green
-    )
+    local elemOffset = offset + Vector2.new(2, 2)
+    for _, details in pairs(statsList) do
+        DrawUtil.drawText(mon, details.message, elemOffset, colors.black, details.color)
+        elemOffset = elemOffset + Vector2.new(0, 2)
+    end
 
-    DrawUtil.drawText(
-        mon,
-        "RF Drain   "..(_G.averageStoredThisTick <= _G.averageLastRFT and "> " or ": ")..format(_G.averageRfLost).."RF/t",
-        offset + Vector2.new(2, 4),
-        colors.black,
-        colors.red
-    )
-
-    DrawUtil.drawText(
-        mon,
-        "Efficiency : "..format(getEfficiency()).."RF/B",
-        offset + Vector2.new(2, 6),
-        colors.black,
-        colors.green
-    )
-
-    DrawUtil.drawText(
-        mon,
-        "Fuel Usage : "..format(_G.averageFuelUsage).."B/t",
-        offset + Vector2.new(2, 8),
-        colors.black,
-        colors.green
-    )
-
-    DrawUtil.drawText(
-        mon,
-        "Waste      : "..string.format("%7d mB", _G.waste),
-        offset + Vector2.new(2, 10),
-        colors.black,
-        colors.green
-    )
 end
 
 local function updateReactorControlButtonStates(touch)

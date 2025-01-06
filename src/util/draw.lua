@@ -9,7 +9,7 @@ local function drawFilledBox(mon, color, offset, size)
         return
     end
     local old = term.redirect(mon)
-    local endCoord = offset + size - 1
+    local endCoord = offset + size - Vector2.one
     paintutils.drawFilledBox(offset.x, offset.y, endCoord.x, endCoord.y, color)
     term.redirect(old)
 end
@@ -19,7 +19,7 @@ local function drawBox(mon, color, offset, size)
         return
     end
     local old = term.redirect(mon)
-    local endCoord = offset + size - 1
+    local endCoord = offset + size - Vector2.one
     paintutils.drawBox(offset.x, offset.y, endCoord.x, endCoord.y, color)
     term.redirect(old)
 end
@@ -35,7 +35,7 @@ local function drawFilledBoxWithBorder(mon, innerColor, outerColor, offset, size
         return
     end
     local old = term.redirect(mon)
-    local endCoord = offset + size - 1
+    local endCoord = offset + size - Vector2.one
     paintutils.drawBox(offset.x, offset.y, endCoord.x, endCoord.y, outerColor)
 
     if size.x > 2 and size.y > 2 then
