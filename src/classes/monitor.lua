@@ -173,8 +173,7 @@ end
 
 
 local function drawGraphButtons(mon, offset, size)
-
-    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.orange, offset, size)
+    DrawUtil.drawBox(mon, colors.orange, offset, size)
     local textPos = offset + Vector2.new(4, 0)
     DrawUtil.drawText(mon, " Graph Controls ", textPos, colors.black, colors.orange
     )
@@ -201,7 +200,7 @@ local function drawEnergyBuffer(mon, offset, graphSize, drawPercentLabelOnRight)
     local energyBufferTipOffset = offset + Vector2.new(1, 2 + energyBufferMaxHeight - energyBufferHeight)
     local energyBufferSize = Vector2.new(graphSize.x - 2, energyBufferHeight)
 
-    DrawUtil.drawFilledRectangle(mon, energyBufferColor, energyBufferTipOffset, energyBufferSize)
+    DrawUtil.drawFilledBox(mon, energyBufferColor, energyBufferTipOffset, energyBufferSize)
 
     local energyBufferTextOffset = energyBufferTipOffset
     local rfLabelBackgroundColor = energyBufferColor
@@ -239,7 +238,7 @@ local function drawControlGraph(mon, offset, size, averageRod)
 
     DrawUtil.drawText(mon, "Control Level", offset + Vector2.new(1, 0), colors.black, colors.orange)
     DrawUtil.drawFilledBoxWithBorder(mon, colors.yellow, colors.gray, offset + Vector2.new(0, 1), size)
-    DrawUtil.drawFilledRectangle(mon, colors.white, offset + Vector2.new(3, 2), Vector2.new(9, controlRodPixelHeight))
+    DrawUtil.drawFilledBox(mon, colors.white, offset + Vector2.new(3, 2), Vector2.new(9, controlRodPixelHeight))
 
     local controlRodLevelTextPos, color
     if controlRodPixelHeight > 0 then
@@ -269,7 +268,7 @@ local function drawTemperatures(mon, offset, size)
     local tempFormat = "%4s"..tempUnit
 
     DrawUtil.drawText(mon, "Temperatures", offset + Vector2.new(2, 0), BACKGROUND_COLOR, colors.orange)
-    DrawUtil.drawFilledRectangle(mon, colors.gray, offset + Vector2.new(8, 2), Vector2.new(1, temperatureMaxHeight))
+    DrawUtil.drawFilledBox(mon, colors.gray, offset + Vector2.new(8, 2), Vector2.new(1, temperatureMaxHeight))
 
     -- case temp
     DrawUtil.drawText(mon, "Case", offset + Vector2.new(3, 1), colors.gray, colors.lightBlue)
@@ -279,7 +278,7 @@ local function drawTemperatures(mon, offset, size)
     local caseTempOffset = offset + Vector2.new(2, 2 + temperatureMaxHeight - caseTempHeight)
     local caseTempSize = Vector2.new(6, caseTempHeight)
 
-    DrawUtil.drawFilledRectangle(mon, CASE_TEMP_COLOR, caseTempOffset, caseTempSize)
+    DrawUtil.drawFilledBox(mon, CASE_TEMP_COLOR, caseTempOffset, caseTempSize)
 
     local caseTempTextOffset = caseTempOffset
     local caseTempTextBackgroundColor = CASE_TEMP_COLOR
@@ -301,7 +300,7 @@ local function drawTemperatures(mon, offset, size)
     local fuelTempOffset = offset + Vector2.new(9, 2 + temperatureMaxHeight - fuelTempHeight)
     local fuelTempSize = Vector2.new(6, fuelTempHeight)
 
-    DrawUtil.drawFilledRectangle(mon, FUEL_TEMP_COLOR, fuelTempOffset, fuelTempSize)
+    DrawUtil.drawFilledBox(mon, FUEL_TEMP_COLOR, fuelTempOffset, fuelTempSize)
 
     local fuelTempTextOffset = fuelTempOffset
     local fuelTempTextBackgroundColor = FUEL_TEMP_COLOR
@@ -328,7 +327,7 @@ local function drawGraph(mon, dividerXCoord, name, graphOffset, graphSize)
 end
 
 local function drawGraphs(mon, monitorSize, graphSlots, dividerXCoord, offset, size)
-    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.lightBlue, offset, size)
+    DrawUtil.drawBox(mon, colors.lightBlue, offset, size)
     local label = " Reactor Graphs "
     DrawUtil.drawText(
         mon,
@@ -352,7 +351,7 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
         size = Vector2.new(30, 9)
     end
 
-    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.cyan, offset, size)
+    DrawUtil.drawBox(mon, colors.cyan, offset, size)
     DrawUtil.drawText(mon, " Reactor Controls ", offset + Vector2.new(4, 0), colors.black, colors.cyan)
 
     local reactorOnOffLabel = "Reactor "..(_G.btnOn and "Online" or "Offline")
@@ -371,8 +370,8 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
     local bufferVisualSize = Vector2.new(20, 3)
 
     DrawUtil.drawText(mon, "Buffer Target Range", bufferVisualOffset + Vector2.new(0, -1), colors.black, colors.orange)
-    DrawUtil.drawFilledRectangle(mon, colors.red, bufferVisualOffset, bufferVisualSize)
-    DrawUtil.drawFilledRectangle(mon, colors.green, bufferVisualOffset + Vector2.new(bufferMinInPixels, 0), Vector2.new(bufferRangePixelWidth, 3))
+    DrawUtil.drawFilledBox(mon, colors.red, bufferVisualOffset, bufferVisualSize)
+    DrawUtil.drawFilledBox(mon, colors.green, bufferVisualOffset + Vector2.new(bufferMinInPixels, 0), Vector2.new(bufferRangePixelWidth, 3))
 
     DrawUtil.drawText(
         mon,
@@ -393,7 +392,7 @@ local function drawControls(mon, offset, size, drawBufferVisualization)
 end
 
 local function drawStatistics(mon, offset, size)
-    DrawUtil.drawFilledBoxWithBorder(mon, colors.black, colors.blue, offset, size)
+    DrawUtil.drawBox(mon, colors.blue, offset, size)
     DrawUtil.drawText(mon, " Reactor Statistics ", offset + Vector2.new(4, 0), colors.black, colors.blue
     )
 
@@ -533,7 +532,6 @@ local Monitor = {
         -- button.func()
 
         self.touch.buttonList[buttonName].func()
-        -- self.touch:drawButton(buttonName)
         print(buttonName, "clicked on", self.id)
     end,
     
@@ -541,11 +539,10 @@ local Monitor = {
         self.monPeripheral.setTextScale(0.5)
         self.size = Vector2.new(self.monPeripheral.getSize())
         self.mon = window.create(self.monPeripheral, 1, 1, self.size.x, self.size.y, false)
+        self.touch = _G.Touchpoint.new(self.id, self.mon)
         self.dividerXCoord = calculateDividerXCoord(self.size.x)
         self.dividerYCoord = calculateDividerYCoord(self.size.y)
-        self.touch = _G.Touchpoint.new(self.id, self.mon)
         
-        -- print(self.id)
         self.drawOptions = getDrawOptions(self.size)
         if self.drawOptions.drawGraphMenu then
             local offset = Vector2.new(self.dividerXCoord + 5, self.dividerYCoord - 14)
@@ -567,6 +564,9 @@ local Monitor = {
         if touchpointEvent[1] == "button_click" then
             local buttonName = touchpointEvent[3]
 			self:handleClick(buttonName)
+
+            -- Immediately draw the clicked monitor so that users don't feel any input delay when using the monitors
+			self:draw()
         end
         if event[1] == "monitor_resize" then
             self:handleResize()

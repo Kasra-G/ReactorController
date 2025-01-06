@@ -4,13 +4,23 @@
 ---@param color any
 ---@param offset Vector2
 ---@param size Vector2
-local function drawFilledRectangle(mon, color, offset, size)
+local function drawFilledBox(mon, color, offset, size)
     if size.x <= 0 or size.y <= 0 then
         return
     end
     local old = term.redirect(mon)
     local endCoord = offset + size - 1
     paintutils.drawFilledBox(offset.x, offset.y, endCoord.x, endCoord.y, color)
+    term.redirect(old)
+end
+
+local function drawBox(mon, color, offset, size)
+    if size.x <= 0 or size.y <= 0 then
+        return
+    end
+    local old = term.redirect(mon)
+    local endCoord = offset + size - 1
+    paintutils.drawBox(offset.x, offset.y, endCoord.x, endCoord.y, color)
     term.redirect(old)
 end
 
@@ -48,6 +58,7 @@ end
 
 _G.DrawUtil = {
     drawFilledBoxWithBorder = drawFilledBoxWithBorder,
-    drawFilledRectangle = drawFilledRectangle,
+    drawFilledBox = drawFilledBox,
+    drawBox = drawBox,
     drawText = drawText,
 }

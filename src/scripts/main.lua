@@ -20,12 +20,12 @@ local function executeAllLuaFilesInSrcFolderExceptMain()
 end
 
 local function promptAndReadInputAndLoopUntilValid(prompt, validAnswersList)
-    local validAnswer
+    local validAnswer = nil
     local validAnswersTable = {}
     for _, answer in pairs(validAnswersList) do
         validAnswersTable[answer] = true
     end
-    while true do
+    while not validAnswer do
         print(prompt)
         local input = read()
         if validAnswersTable[input] then
@@ -42,6 +42,22 @@ local function runFirstTimeSetup()
     if response == "y" then
         UPDATE_CONFIG.AUTOUPDATE = true
     end
+end
+
+local function runUpdateLogic()
+    local updateAvailable = _G.UpdateScript.checkForUpdate()
+    if not updateAvailable then
+        return false
+    end
+
+    print("Update available!")
+    -- Set some state variable somewhere to tell us an update is available
+    if not UPDATE_CONFIG.AUTOUPDATE then
+        print("Automatic update skipped because it's not enabled!")
+        return false
+    end
+    print("Automatic update is enabled! Updating...")
+    return _G.UpdateScript.performUpdate()
 end
 
 local function start()
@@ -62,21 +78,12 @@ local function start()
         ConfigUtil.writeAllConfigs()
     end
 
-    local updateAvailable = _G.UpdateScript.checkForUpdate()
-    if updateAvailable then
-        print("Update available!")
-        -- Set some state variable somewhere to tell us an update is available
-        if UPDATE_CONFIG.AUTOUPDATE then
-            print("Automatic update is enabled! Updating...")
-            _G.UpdateScript.performUpdate()
-            print("Finished update! Rebooting...")
-            sleep(1)
-            os.reboot()
-        else
-            print("Automatic update skipped because it's not enabled!")
-            sleep(1)
-        end
+    local didUpdate = runUpdateLogic()
+    if didUpdate then
+        print("Successfully updated! Rebooting...")
+        os.reboot()
     end
+
     -- For now, main() is in controller.lua
     main()
 end

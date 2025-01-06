@@ -1,33 +1,3 @@
-local version = "0.51"
-local tag = "reactorConfig"
---[[
-Program made by DrunkenKas
-	See github: https://github.com/Kasra-G/ReactorController/#readme
-
-The MIT License (MIT)
- 
-Copyright (c) 2021 Kasra Ghaffari
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
- 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
- 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-]]
-
-
 ---@type table<string, Monitor>
 local monitors = {}
 
@@ -47,7 +17,7 @@ _G.fuelTemp = 0
 _G.caseTemp = 0
 _G.fuelUsage = 0
 _G.waste = 0
-_G.capacity = 1
+_G.capacity = 1000
 
 _G.SECONDS_TO_AVERAGE = 0.5
 
@@ -194,6 +164,9 @@ local fuelTempValues = {}
 local caseTempValues = {}
 local rfLostValues = {}
 
+local bat
+local fuel
+
 local function updateStats()
     if (_G.reactorVersion == "Big Reactors") then
         _G.storedThisTick = _G.reactor.getEnergyStored()
@@ -206,8 +179,8 @@ local function updateStats()
         -- Big Reactors doesn't give us a way to directly query RF capacity through CC APIs
         _G.capacity = math.max(_G.capacity, _G.reactor.getEnergyStored)
     elseif (_G.reactorVersion == "Extreme Reactors") then
-        local bat = _G.reactor.getEnergyStats()
-        local fuel = _G.reactor.getFuelStats()
+        bat = _G.reactor.getEnergyStats()
+        fuel = _G.reactor.getFuelStats()
 
         _G.storedThisTick = bat.energyStored
         _G.lastRFT = bat.energyProducedLastTick
@@ -248,34 +221,6 @@ local function loadFromConfig()
         _G.btnOn = deserialized.btnOn
         graphsToDraw = deserialized.graphsToDraw
         XOffs = deserialized.XOffs
-    elseif (legacyConfigExists) then
-        local file = fs.open(tag..".txt", "r")
-        local calibrated = file.readLine() == "true"
-
-        --read calibration information
-        if (calibrated) then
-            _ = tonumber(file.readLine())
-            _ = tonumber(file.readLine())
-        end
-        _G.maxb = tonumber(file.readLine())
-        _G.minb = tonumber(file.readLine())
-        _G.rod = tonumber(file.readLine())
-        _G.btnOn = file.readLine() == "true"
-
-        --read Graph data
-        for i in pairs(XOffs) do
-            local graph = file.readLine()
-            local v1 = tonumber(file.readLine())
-            local v2 = true
-            if (graph ~= "nil") then
-                v2 = false
-                graphsToDraw[graph] = v1
-            end
-
-            XOffs[i] = {v1, v2}
-
-        end
-        file.close()
     else
         print("Config file not found, generating default settings!")
 
@@ -299,15 +244,7 @@ local function getAllPeripheralIdsForType(targetType)
     return peripheralIds
 end
 
-local function disconnectMonitor(monitorID)
-    if monitors[monitorID] == nil then
-        return
-    end
-
-    print("Monitor "..monitorID.." disconnected!")
-    monitors[monitorID] = nil
-end
-
+---@param monitorID string
 local function connectMonitor(monitorID)
     print("Monitor "..monitorID.." connected!")
     monitors[monitorID] = Monitor.new(monitorID)
@@ -329,23 +266,41 @@ local function redrawMonitors()
     end
 end
 
+---@param peripheralID string
+local function handlePeripheralDetach(peripheralID)
+    if monitors[peripheralID] ~= nil then
+        print("Monitor "..peripheralID.." disconnected!")
+        monitors[peripheralID] = nil
+    end
+end
+
+---@param peripheralID string
+---@param peripheralType string
+local function handlePeripheralAttach(peripheralID, peripheralType)
+    if peripheralType == "monitor" then
+        connectMonitor(peripheralID)
+    elseif peripheralType == "BiggerReactors_Reactor" then
+        print("Attached Reactor")
+    else
+        print("Unknown peripheral", peripheralID, "of type", peripheralType, "attached to network")
+    end
+end
+
 local function eventListener()
     while true do
         local event = { os.pullEvent() }
-    
-        if event[1] == "monitor_touch" or event[1] == "monitor_resize" then
+
+        if event[1] == "bob" then
+            
+        elseif event[1] == "monitor_touch" or event[1] == "monitor_resize" then
             local monitor = monitors[event[2]]
             if monitor ~= nil then
                 monitor:handleEvents(event)
             end
-        end
-
-        if event[1] == "peripheral" and peripheral.getType(event[2]) == "monitor" then
-            connectMonitor(event[2])
-        end
-
-        if event[1] == "peripheral_detach" then
-            disconnectMonitor(event[2])
+        elseif event[1] == "peripheral" then
+            handlePeripheralAttach(event[2],  peripheral.getType(event[2]))
+        elseif event[1] == "peripheral_detach" then
+            handlePeripheralDetach(event[2])
         end
     end
 end
@@ -383,10 +338,21 @@ local function updateAverages()
     _G.averageRfLost = calculateAverage(rfLostValues)
 end
 
+local iterations = 0
+_G.TICKS_TO_REDRAW = 4
+local function runLoop()
+    updateRods()
+    if iterations % TICKS_TO_REDRAW == 0 then
+        redrawMonitors()
+    end
+    iterations = iterations + 1
+end
+
 
 -- Main loop, handles all the events
 local function loop()
     ::begin::
+    -- os.sleep(0)
 
     local curTime = math.floor(os.clock() * 20)
     local lastTime = curTime
@@ -394,37 +360,37 @@ local function loop()
     local tries = 0
     local cur = {}
     local last = {}
-    sleep(0)
+
+    os.queueEvent("bob")
+    os.pullEvent("bob")
     while true do
         tries = 0
         curTime = math.floor(os.clock() * 20)
-        if curTime ~= lastTime + 1 then
+        if curTime > lastTime + 1 then
             print("lastTime "..lastTime..", curTime "..curTime)
             goto begin
+        elseif curTime < lastTime + 1 then
+            os.sleep(0)
+            goto continue
         end
 
         updateStats()
-        cur.rft = _G.reactor.getEnergyProducedLastTick()
-        cur.energy = _G.reactor.getEnergyStats().energyStored
-        if last.rft ~= nil and last.energy ~= nil then
-            while cur.rft == last.rft and cur.energy == last.energy or tries <= maxRetries do
+        if _G.lastRFTPrev ~= nil and _G.storedLastTick ~= nil then
+            while _G.lastRFT == _G.lastRFTPrev and _G.storedThisTick == _G.storedLastTick or tries <= maxRetries do
                 updateStats()
-                cur.rft = _G.reactor.getEnergyProducedLastTick()
-                cur.energy = _G.reactor.getEnergyStats().energyStored
                 tries = tries + 1
             end
             updateAverages()
-            updateRods()
-            redrawMonitors()
+            runLoop()
             _G.averageStoredLastTick = _G.averageStoredThisTick
         end
 
         _G.storedLastTick = _G.storedThisTick
         _G.lastRFTPrev = _G.lastRFT
-        last.rft = cur.rft
-        last.energy = cur.energy
         lastTime = curTime
-        sleep(0)
+        os.queueEvent("bob")
+        os.pullEvent("bob")
+        ::continue::
     end
 end
 

@@ -66,7 +66,7 @@ local function drawControlGraph(mon, offset, size, averageRod)
         offset + Vector2.new(0, 1),
         size
     )
-    DrawUtil.drawFilledRectangle(
+    DrawUtil.drawFilledBox(
         mon,
         colors.white,
         offset + Vector2.new(3, 2),
