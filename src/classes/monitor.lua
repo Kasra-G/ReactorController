@@ -564,13 +564,18 @@ local Monitor = {
         if touchpointEvent[1] == "button_click" then
             local buttonName = touchpointEvent[3]
 			self:handleClick(buttonName)
-
-            -- Immediately draw the clicked monitor so that users don't feel any input delay when using the monitors
-			self:draw()
         end
         if event[1] == "monitor_resize" then
+            if self.monPeripheral.getTextScale() ~= 0.5 then
+                self.mon.setVisible(false)
+                self.monPeripheral.setTextScale(0.5)
+                return
+            end
             self:handleResize()
         end
+
+        -- Immediately draw the clicked monitor so that users don't feel any input delay when using the monitors
+        self:draw()
     end,
 
     ---@param self Monitor

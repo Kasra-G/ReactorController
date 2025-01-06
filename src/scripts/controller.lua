@@ -286,25 +286,6 @@ local function handlePeripheralAttach(peripheralID, peripheralType)
     end
 end
 
-local function eventListener()
-    while true do
-        local event = { os.pullEvent() }
-
-        if event[1] == "bob" then
-            
-        elseif event[1] == "monitor_touch" or event[1] == "monitor_resize" then
-            local monitor = monitors[event[2]]
-            if monitor ~= nil then
-                monitor:handleEvents(event)
-            end
-        elseif event[1] == "peripheral" then
-            handlePeripheralAttach(event[2],  peripheral.getType(event[2]))
-        elseif event[1] == "peripheral_detach" then
-            handlePeripheralDetach(event[2])
-        end
-    end
-end
-
 local function updateAverages()
     table.insert(storedThisTickValues, _G.storedThisTick)
     table.insert(lastRFTValues, _G.lastRFT)
@@ -349,48 +330,60 @@ local function runLoop()
 end
 
 
--- Main loop, handles all the events
-local function loop()
-    ::begin::
-    -- os.sleep(0)
+local function eventListener()
+    while true do
+        local event = { os.pullEvent() }
 
+        if event[1] == "monitor_touch" or event[1] == "monitor_resize" then
+            local monitor = monitors[event[2]]
+            if monitor ~= nil then
+                monitor:handleEvents(event)
+            end
+        elseif event[1] == "peripheral" then
+            handlePeripheralAttach(event[2],  peripheral.getType(event[2]))
+        elseif event[1] == "peripheral_detach" then
+            handlePeripheralDetach(event[2])
+        end
+    end
+end
+
+local function loop()
+    local loopEventName = "yield"
     local curTime = math.floor(os.clock() * 20)
     local lastTime = curTime
-    local maxRetries = 10
+    local maxRetries = 5
     local tries = 0
-    local cur = {}
-    local last = {}
 
-    os.queueEvent("bob")
-    os.pullEvent("bob")
+    os.sleep(0)
     while true do
-        tries = 0
         curTime = math.floor(os.clock() * 20)
-        if curTime > lastTime + 1 then
-            print("lastTime "..lastTime..", curTime "..curTime)
-            goto begin
-        elseif curTime < lastTime + 1 then
-            os.sleep(0)
-            goto continue
-        end
+        if curTime < lastTime + 1 then
+            os.queueEvent(loopEventName)
+            os.pullEvent(loopEventName)
+        elseif curTime > lastTime + 1 then
+            print("Missed last", curTime - lastTime - 1, "ticks!", curTime)
+            updateStats()
+        else
+            -- We have missed the data from the last tick, so we must set them to nil
+            -- Guaranteed to run at the start of a new tick
+            updateStats()
+            if _G.lastRFTPrev ~= nil and _G.storedLastTick ~= nil then
 
-        updateStats()
-        if _G.lastRFTPrev ~= nil and _G.storedLastTick ~= nil then
-            while _G.lastRFT == _G.lastRFTPrev and _G.storedThisTick == _G.storedLastTick or tries <= maxRetries do
-                updateStats()
-                tries = tries + 1
+                -- Since we are executing on a separate thread, we need to poll until the reactor has updated it's values in the new tick.
+                tries = 0
+                while _G.lastRFT == _G.lastRFTPrev and _G.storedThisTick == _G.storedLastTick or tries < maxRetries do
+                    updateStats()
+                    tries = tries + 1
+                end
+                updateAverages()
+                runLoop()
             end
-            updateAverages()
-            runLoop()
-            _G.averageStoredLastTick = _G.averageStoredThisTick
+            os.sleep(0)
         end
-
         _G.storedLastTick = _G.storedThisTick
+        _G.averageStoredLastTick = _G.averageStoredThisTick
         _G.lastRFTPrev = _G.lastRFT
         lastTime = curTime
-        os.queueEvent("bob")
-        os.pullEvent("bob")
-        ::continue::
     end
 end
 
