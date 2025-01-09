@@ -1,6 +1,10 @@
 ---@type table<string, Monitor>
 local monitors = {}
+-- local reactors = {}
+-- local turbines = {}
+-- local buffers = {}
 
+--TODO: Remove all these global variables and instead use tables
 _G.reactorVersion = nil
 _G.reactor = nil
 _G.btnOn = nil
@@ -75,7 +79,12 @@ local function calculateAverage(array)
     return sum / #array
 end
 
--- Define PID controller parameters
+-- TODO: Move to 2 or 3 stage PID controller to eliminate integral windup (oscillations)
+-- TODO: Provide multiple PID presets for different sizes of reactors
+    -- User can choose the one that works the best for each reactor.
+-- TODO: Dynamic setting of PID constants based on measured change in RFT per % change in control rods
+-- TODO: Try using % of max RFT generation as basis of PID controller
+-- TODO: Try using gain scheduling to reduce integral windup
 local pid = {
     setpointRFT = 0,      -- Target RFT
     setpointRF = 0,      -- Target RF
@@ -104,10 +113,9 @@ local function iteratePID(pid, error)
     pid.lastError = error
     return rodLevel
 end
-local pretty = require("cc.pretty")
 
 local function updateRods()
-    if (not _G.btnOn) then
+    if not _G.btnOn then
         return
     end
     local currentRF = _G.averageStoredLastTick
@@ -139,7 +147,7 @@ local function updateRods()
     setRods(rftRodLevel)
 end
 
--- Saves the configuration of the reactor controller
+--TODO: Update this to handle settings for multiple reactors and turbines
 local function saveToConfig()
     local file = fs.open(tag.."Serialized.txt", "w")
     local configs = {
@@ -203,7 +211,7 @@ local function updateStats()
     _G.rfLost = math.floor(_G.lastRFT + _G.storedLastTick - _G.storedThisTick + 0.5)
 end
 
---Initialize variables from either a config file or the defaults
+--TODO: Update this to handle settings for multiple reactors and turbines
 local function loadFromConfig()
     _G.invalidDim = false
     local legacyConfigExists = fs.exists(tag..".txt")
@@ -259,10 +267,8 @@ end
 
 local function redrawMonitors()
     for _, monitor in pairs(monitors) do
+        -- Eventually pass in our list of reactors and turbines to draw stats for.
         monitor:draw()
-        -- ---@type ReactorStatistics
-        -- local reactorStats = {}
-        -- monitor:update(reactorStats)
     end
 end
 
@@ -280,7 +286,7 @@ local function handlePeripheralAttach(peripheralID, peripheralType)
     if peripheralType == "monitor" then
         connectMonitor(peripheralID)
     elseif peripheralType == "BiggerReactors_Reactor" then
-        print("Attached Reactor")
+        print("DEBUG: Attached Reactor")
     else
         print("Unknown peripheral", peripheralID, "of type", peripheralType, "attached to network")
     end
@@ -364,12 +370,13 @@ local function loop()
             print("Missed last", curTime - lastTime - 1, "ticks!", curTime)
             updateStats()
         else
-            -- We have missed the data from the last tick, so we must set them to nil
             -- Guaranteed to run at the start of a new tick
             updateStats()
             if _G.lastRFTPrev ~= nil and _G.storedLastTick ~= nil then
 
                 -- Since we are executing on a separate thread, we need to poll until the reactor has updated it's values in the new tick.
+                -- Usually this is only 3-4 iterations as the reactor does not take long to update stats.
+                -- If it takes more than 5 iterations we give up and try again in the next tick
                 tries = 0
                 while _G.lastRFT == _G.lastRFTPrev and _G.storedThisTick == _G.storedLastTick or tries < maxRetries do
                     updateStats()
