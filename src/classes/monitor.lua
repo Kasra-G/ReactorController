@@ -36,11 +36,7 @@ local function format(num)
 end
 
 local function getPercPower()
-    return _G.averageStoredThisTick / _G.capacity * 100
-end
-
-local function getEfficiency()
-    return _G.averageLastRFT / _G.averageFuelUsage
+    return _G.overallStats.storedThisTick / _G.overallStats.capacity * 100
 end
 
 --Helper method for adding buttons
@@ -73,18 +69,16 @@ local function maxSub10()
 end
 
 local function turnOff()
-    if (_G.btnOn) then
-        _G.btnOff = true
+    if _G.btnOn then
         _G.btnOn = false
-        _G.reactor.setActive(false)
+        setReactors(false)
     end
 end
 
 local function turnOn()
-    if (_G.btnOff) then
-        _G.btnOff = false
+    if not _G.btnOn then
         _G.btnOn = true
-        _G.reactor.setActive(true)
+        setReactors(true)
     end
 end
 
@@ -172,21 +166,22 @@ local function addGraphButtons(monitor, graphSlots, offset, size)
 end
 
 
-local function drawGraphButtons(mon, offset, size)
+local function drawGraphMenu(mon, offset, size)
     DrawUtil.drawBox(mon, colors.orange, offset, size)
     local textPos = offset + Vector2.new(4, 0)
-    DrawUtil.drawText(mon, " Graph Controls ", textPos, colors.black, colors.orange
-    )
+    DrawUtil.drawText(mon, " Graph Controls ", textPos, colors.black, colors.orange)
 end
 
 local function drawEnergyBuffer(mon, offset, graphSize, drawPercentLabelOnRight)
     DrawUtil.drawText(mon, "Energy Buffer", offset, colors.black, colors.orange)
     DrawUtil.drawFilledBoxWithBorder(mon, colors.red, colors.gray, offset + Vector2.new(0, 1), graphSize)
 
+    local percentFull = getPercPower()
+    local exactBufferAmount = _G.overallStats.storedThisTick
     local energyBufferMaxHeight = graphSize.y - 2
-    local unitEnergyLevel = getPercPower() / 100
+    local unitEnergyLevel = percentFull / 100
     local energyBufferHeight = math.floor(unitEnergyLevel * energyBufferMaxHeight + 0.5)
-    local rndpw = round(getPercPower(), 2)
+    local rndpw = round(percentFull, 2)
 
     local energyBufferColor
     if rndpw < _G.maxb and rndpw > _G.minb then
@@ -224,7 +219,7 @@ local function drawEnergyBuffer(mon, offset, graphSize, drawPercentLabelOnRight)
     )
     DrawUtil.drawText(
         mon,
-        format(_G.averageStoredThisTick).."RF",
+        format(exactBufferAmount).."RF",
         energyBufferTextOffset,
         rfLabelBackgroundColor,
         colors.black
@@ -264,7 +259,9 @@ local function drawTemperatures(mon, offset, size)
     local assumedMaxFuelTemperature = 3000
     local temperatureMaxHeight = size.y - 2
 
-    local tempUnit = (_G.reactorVersion == "Bigger Reactors") and "K" or "C"
+    -- local tempUnit = (_G.reactorVersion == "Bigger Reactors") and "K" or "C"
+    local caseTemp = _G.selectedReactor.averageCaseTemp
+    local tempUnit = "C"
     local tempFormat = "%4s"..tempUnit
 
     DrawUtil.drawText(mon, "Temperatures", offset + Vector2.new(2, 0), BACKGROUND_COLOR, colors.orange)
@@ -272,7 +269,7 @@ local function drawTemperatures(mon, offset, size)
 
     -- case temp
     DrawUtil.drawText(mon, "Case", offset + Vector2.new(3, 1), colors.gray, colors.lightBlue)
-    local caseUnit = math.min(_G.averageCaseTemp / assumedMaxCaseTemperature, 1)
+    local caseUnit = math.min(caseTemp / assumedMaxCaseTemperature, 1)
     local caseTempHeight = math.floor(caseUnit * temperatureMaxHeight + 0.5)
 
     local caseTempOffset = offset + Vector2.new(2, 2 + temperatureMaxHeight - caseTempHeight)
@@ -289,12 +286,14 @@ local function drawTemperatures(mon, offset, size)
         caseTempTextColor, caseTempTextBackgroundColor = caseTempTextBackgroundColor, caseTempTextColor
     end
 
-    local caseRnd = math.floor(_G.averageCaseTemp + 0.5)
+    local caseRnd = math.floor(caseTemp + 0.5)
     DrawUtil.drawText(mon, string.format(tempFormat, caseRnd..""), caseTempTextOffset, caseTempTextBackgroundColor, caseTempTextColor)
+
+    local fuelTemp = _G.selectedReactor.averageFuelTemp
 
     -- fuel temp
     DrawUtil.drawText(mon, "Fuel", offset + Vector2.new(10, 1), colors.gray, colors.lightBlue)
-    local fuelUnit = math.min(_G.averageFuelTemp / assumedMaxFuelTemperature, 1)
+    local fuelUnit = math.min(fuelTemp / assumedMaxFuelTemperature, 1)
     local fuelTempHeight = math.floor(fuelUnit * temperatureMaxHeight + 0.5)
 
     local fuelTempOffset = offset + Vector2.new(9, 2 + temperatureMaxHeight - fuelTempHeight)
@@ -311,7 +310,7 @@ local function drawTemperatures(mon, offset, size)
         fuelTempTextColor, fuelTempTextBackgroundColor = fuelTempTextBackgroundColor, fuelTempTextColor
     end
 
-    local fuelRnd = math.floor(_G.averageFuelTemp + 0.5)
+    local fuelRnd = math.floor(fuelTemp + 0.5)
     DrawUtil.drawText(mon, string.format(tempFormat, fuelRnd..""), fuelTempTextOffset, fuelTempTextBackgroundColor, fuelTempTextColor)
 end
 
@@ -320,7 +319,7 @@ local function drawGraph(mon, dividerXCoord, name, graphOffset, graphSize)
         local drawPercentLabelOnRight = graphOffset.x + 19 < dividerXCoord - 1
         drawEnergyBuffer(mon, graphOffset, graphSize, drawPercentLabelOnRight)
     elseif (name == "Control Level") then
-        drawControlGraph(mon, graphOffset, graphSize, _G.averageRod)
+        drawControlGraph(mon, graphOffset, graphSize, _G.selectedReactor.averageRodLevel)
     elseif (name == "Temperatures") then
         drawTemperatures(mon, graphOffset, graphSize)
     end
@@ -403,33 +402,26 @@ local statsList = {
 local function drawStatistics(mon, offset, size)
     DrawUtil.drawBox(mon, colors.blue, offset, size)
     DrawUtil.drawText(mon, " Reactor Statistics ", offset + Vector2.new(4, 0), colors.black, colors.blue)
-    statsList[1].message = "Generating : "..format(_G.averageLastRFT).."RF/t"
+    statsList[1].message = "Generating : "..format(_G.overallStats.lastRFT).."RF/t"
     statsList[1].color = colors.green
-    statsList[2].message = "RF Drain   "..(_G.averageStoredThisTick <= _G.averageLastRFT and "> " or ": ")..format(_G.averageRfLost).."RF/t"
+    statsList[2].message = "RF Drain   "..(_G.overallStats.storedThisTick <= _G.overallStats.lastRFT and "> " or ": ")..format(_G.overallStats.rfLost).."RF/t"
     statsList[2].color = colors.red
-    statsList[3].message = "Efficiency : "..format(getEfficiency()).."RF/B"
+    statsList[3].message = "Efficiency : "..format(_G.overallStats.efficiency()).."RF/B"
     statsList[3].color = colors.green
-    statsList[4].message = "Fuel Usage : "..format(_G.averageFuelUsage).."B/t"
+    statsList[4].message = "Fuel Usage : "..format(_G.overallStats.fuelUsage).."B/t"
     statsList[4].color = colors.green
-    statsList[5].message = "Waste      : "..string.format("%7d mB", _G.waste)
+    statsList[5].message = "Waste      : "..string.format("%7d mB", _G.overallStats.waste)
     statsList[5].color = colors.green
 
     local elemOffset = offset + Vector2.new(2, 2)
-    for _, details in pairs(statsList) do
-        DrawUtil.drawText(mon, details.message, elemOffset, colors.black, details.color)
-        elemOffset = elemOffset + Vector2.new(0, 2)
+    for i, details in pairs(statsList) do
+        DrawUtil.drawText(mon, details.message, elemOffset + Vector2.new(0, 2) * (i - 1), colors.black, details.color)
     end
-
 end
 
 local function updateReactorControlButtonStates(touch)
-    if _G.btnOn then
-        touch:setButton("On", true)
-        touch:setButton("Off", false)
-    else
-        touch:setButton("On", false)
-        touch:setButton("Off", true)
-    end
+    touch:setButton("On", _G.btnOn)
+    touch:setButton("Off", not _G.btnOn)
 end
 
 local function updateGraphMenuButtonStates(touch, graphSlots)
@@ -479,7 +471,7 @@ local function getDrawOptions(monitorSize)
     }
     return drawOptions
 end
-
+local pretty = require "cc.pretty"
 ---@class Monitor
 local Monitor = {
     navbar = nil,
@@ -567,7 +559,7 @@ local Monitor = {
     draw = function(self)
         self.mon.setVisible(false)
         self:clear()
-        
+
         if self.drawOptions.drawInvalidMonitorDimensions then
             self.mon.write("Invalid Monitor Dimensions")
         end
@@ -575,7 +567,7 @@ local Monitor = {
         if self.drawOptions.drawGraphMenu then
             local offset = Vector2.new(self.dividerXCoord + 1, self.dividerYCoord - 14 + 1)
             local size = Vector2.new(30, 13)
-            drawGraphButtons(self.mon, offset, size)
+            drawGraphMenu(self.mon, offset, size)
             updateGraphMenuButtonStates(self.touch, self.graphSlots)
         end
 

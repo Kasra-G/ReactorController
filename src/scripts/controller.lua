@@ -1,82 +1,94 @@
 ---@type table<string, Monitor>
-local monitors = {}
--- local reactors = {}
--- local turbines = {}
--- local buffers = {}
+_G.monitors = {}
+---@type table<string, Reactor>
+_G.reactors = {}
+-- _G.turbines = {}
 
---TODO: Remove all these global variables and instead use tables
-_G.reactorVersion = nil
-_G.reactor = nil
+_G.fluidBuffers = {}
+
+---@type table<string, EnergyBuffer>
+_G.energyBuffers = {}
+
+_G.masterAutoRodControl = true
+
+-- These are averaged when possible
+---@class OverallStats
+_G.overallStats = {
+    storedLastTick = 0,
+    storedThisTick = 0,
+    lastRFT = 0,
+    rfLost = 0,
+    steamConsumedLastTick = 2000,
+    fuelUsage = 0,
+    waste = 0,
+    capacity = 1000,
+    efficiency = function ()
+        return _G.overallStats.lastRFT / _G.overallStats.fuelUsage
+    end
+}
+
+_G.selectedReactor = nil
+
+-- -@class AveragedTurbineStatistics
+-- -@field fuelUsage number
+-- -@field fuelUsageValues Deque
+-- -@field lastRFT number
+-- -@field lastRFTValues Deque
+-- -@field waste number
+-- -@field wasteValues Deque
+-- -@field fuelTemp number
+-- -@field fuelTempValues Deque
+-- -@field caseTemp number
+-- -@field caseTempValues Deque
+
+local function updateOverallStats()
+    _G.overallStats.storedLastTick = 0
+    _G.overallStats.storedThisTick = 0
+    _G.overallStats.capacity = 0
+    for id, energyBuffer in pairs(energyBuffers) do
+        _G.overallStats.storedLastTick = _G.overallStats.storedLastTick + energyBuffer.averageEnergyStoredLastTick
+        _G.overallStats.storedThisTick = _G.overallStats.storedThisTick + energyBuffer.averageEnergyStoredThisTick
+        _G.overallStats.capacity = _G.overallStats.capacity + energyBuffer.capacity
+    end
+
+    _G.overallStats.fuelUsage = 0
+    _G.overallStats.waste = 0
+    _G.overallStats.lastRFT = 0
+    _G.overallStats.steamProductionRate = 0
+    _G.overallStats.storedSteam = 0
+    _G.overallStats.steamCapacity = 0
+    _G.overallStats.steamConsumedLastTick = 4000
+
+    for id, reactor in pairs(reactors) do
+        if reactor.isActivelyCooled then
+            _G.overallStats.steamProductionRate = _G.overallStats.steamProductionRate + reactor.averageSteamProductionRate
+            _G.overallStats.storedSteam = _G.overallStats.storedSteam + reactor.averageStoredSteam
+            _G.overallStats.steamCapacity = _G.overallStats.steamCapacity + reactor.steamCapacity
+        end
+        _G.overallStats.fuelUsage = _G.overallStats.fuelUsage + reactor.averageFuelUsage
+        _G.overallStats.lastRFT = _G.overallStats.lastRFT + reactor.averageLastRFT
+        _G.overallStats.waste = _G.overallStats.waste + reactor.waste
+    end
+
+    _G.overallStats.rfLost = math.floor(_G.overallStats.lastRFT + _G.overallStats.storedLastTick - _G.overallStats.storedThisTick + 0.5)
+end
+
 _G.btnOn = nil
-_G.btnOff = nil
 _G.minb = nil
 _G.maxb = nil
-_G.rod = nil
-_G.rfLost = nil
-_G.storedLastTick = 0
-_G.storedThisTick = 0
-_G.lastRFT = 0
-
-_G.fuelTemp = 0
-_G.caseTemp = 0
-_G.fuelUsage = 0
-_G.waste = 0
-_G.capacity = 1000
 
 _G.SECONDS_TO_AVERAGE = 0.5
 
-_G.averageStoredThisTick = 0
-_G.averageStoredLastTick = 0
-_G.averageLastRFT = 0
-_G.averageRod = 0
-_G.averageFuelUsage = 0
-_G.averageWaste = 0
-_G.averageFuelTemp = 0
-_G.averageCaseTemp = 0
-_G.averageRfLost = 0
-
---returns the side that a given peripheral type is connected to
-local function getPeripheral(targetType)
-    for _, name in pairs(peripheral.getNames()) do
-        if (peripheral.getType(name) == targetType) then
-            return name
-        end
-    end
-    return ""
-end
-
-local function setRods(level)
-    level = math.max(level, 0)
-    level = math.min(level, 100)
-    local count = reactor.getNumberOfControlRods()
-
-    local numberToAddOneLevelTo = math.floor((level - math.floor(level)) * count + 0.5)
-
-    local levelsMap = {}
-    for idx0, _ in pairs(reactor.getControlRodsLevels()) do
-        local rodLevel = math.floor(level)
-        if numberToAddOneLevelTo > 0 then
-            rodLevel = rodLevel + 1
-            numberToAddOneLevelTo = numberToAddOneLevelTo - 1
-        end
-        levelsMap[idx0] = rodLevel
-    end
-    _G.reactor.setControlRodsLevels(levelsMap)
-end
-
-local function lerp(start, finish, t)
-    t = math.max(0, math.min(1, t))
-
-    return (1 - t) * start + t * finish
-end
 
 -- Function to calculate the average of an array of values
 local function calculateAverage(array)
     local sum = 0
-    for _, value in ipairs(array) do
+    local count = 0
+    for _, value in pairs(array) do
         sum = sum + value
+        count = count + 1
     end
-    return sum / #array
+    return sum / count
 end
 
 -- TODO: Move to 2 or 3 stage PID controller to eliminate integral windup (oscillations)
@@ -85,67 +97,6 @@ end
 -- TODO: Dynamic setting of PID constants based on measured change in RFT per % change in control rods
 -- TODO: Try using % of max RFT generation as basis of PID controller
 -- TODO: Try using gain scheduling to reduce integral windup
-local pid = {
-    setpointRFT = 0,      -- Target RFT
-    setpointRF = 0,      -- Target RF
-    Kp = -.08,           -- Proportional gain
-    Ki = -.0015,          -- Integral gain
-    Kd = -.01,         -- Derivative gain
-    integral = 0,       -- Integral term accumulator
-    lastError = 0,      -- Last error for derivative term
-}
-
-local function iteratePID(pid, error)
-    -- Proportional term
-    local P = pid.Kp * error
-
-    -- Integral term
-    pid.integral = pid.integral + pid.Ki * error
-    pid.integral = math.max(math.min(100, pid.integral), -100)
-
-    -- Derivative term
-    local derivative = pid.Kd * (error - pid.lastError)
-
-    -- Calculate control rod level
-    local rodLevel = math.max(math.min(P + pid.integral + derivative, 100), 0)
-
-    -- Update PID controller state
-    pid.lastError = error
-    return rodLevel
-end
-
-local function updateRods()
-    if not _G.btnOn then
-        return
-    end
-    local currentRF = _G.averageStoredLastTick
-    local diffb = _G.maxb - _G.minb
-    local minRF = _G.minb / 100 * _G.capacity
-    local diffRF = diffb / 100 * _G.capacity
-    local diffr = diffb / 100
-    local targetRFT = _G.averageRfLost
-    local currentRFT = _G.averageLastRFT
-    local targetRF = diffRF / 2 + minRF
-
-    pid.setpointRFT = targetRFT
-    pid.setpointRF = targetRF / _G.capacity * 1000
-
-    local errorRFT = pid.setpointRFT - currentRFT
-    local errorRF = pid.setpointRF - currentRF / _G.capacity * 1000
-
-    local W_RFT = lerp(1, 0, (math.abs(targetRF - currentRF) / _G.capacity / (diffr / 4)))
-    W_RFT = math.max(math.min(W_RFT, 1), 0)
-
-    local W_RF = (1 - W_RFT)  -- Adjust the weight for energy error
-
-    -- Combine the errors with weights
-    local combinedError = W_RFT * errorRFT + W_RF * errorRF
-    local error = combinedError
-    local rftRodLevel = iteratePID(pid, error)
-
-    -- Set control rod levels
-    setRods(rftRodLevel)
-end
 
 --TODO: Update this to handle settings for multiple reactors and turbines
 local function saveToConfig()
@@ -163,53 +114,43 @@ local function saveToConfig()
     file.close()
 end
 
-local storedThisTickValues = {}
-local lastRFTValues = {}
-local rodValues = {}
-local fuelUsageValues = {}
-local wasteValues = {}
-local fuelTempValues = {}
-local caseTempValues = {}
-local rfLostValues = {}
 
-local bat
-local fuel
 
-local function updateStats()
-    if (_G.reactorVersion == "Big Reactors") then
-        _G.storedThisTick = _G.reactor.getEnergyStored()
-        _G.lastRFT = _G.reactor.getEnergyProducedLastTick()
-        _G.rod = _G.reactor.getControlRodLevel(0)
-        _G.fuelUsage = _G.reactor.getFuelConsumedLastTick() / 1000
-        _G.waste = _G.reactor.getWasteAmount()
-        _G.fuelTemp = _G.reactor.getFuelTemperature()
-        _G.caseTemp = _G.reactor.getCasingTemperature()
-        -- Big Reactors doesn't give us a way to directly query RF capacity through CC APIs
-        _G.capacity = math.max(_G.capacity, _G.reactor.getEnergyStored)
-    elseif (_G.reactorVersion == "Extreme Reactors") then
-        bat = _G.reactor.getEnergyStats()
-        fuel = _G.reactor.getFuelStats()
+-- local function updateStats()
+    -- if (_G.reactorVersion == "Big Reactors") then
+    --     _G.storedThisTick = _G.reactor.getEnergyStored()
+    --     _G.lastRFT = _G.reactor.getEnergyProducedLastTick()
+    --     _G.rod = _G.reactor.getControlRodLevel(0)
+    --     _G.fuelUsage = _G.reactor.getFuelConsumedLastTick() / 1000
+    --     _G.waste = _G.reactor.getWasteAmount()
+    --     _G.fuelTemp = _G.reactor.getFuelTemperature()
+    --     _G.caseTemp = _G.reactor.getCasingTemperature()
+    --     -- Big Reactors doesn't give us a way to directly query RF capacity through CC APIs
+    --     _G.capacity = math.max(_G.capacity, _G.reactor.getEnergyStored)
+    -- elseif (_G.reactorVersion == "Extreme Reactors") then
+    --     local bat = _G.reactor.getEnergyStats()
+    --     local fuel = _G.reactor.getFuelStats()
 
-        _G.storedThisTick = bat.energyStored
-        _G.lastRFT = bat.energyProducedLastTick
-        _G.capacity = bat.energyCapacity
-        _G.rod = calculateAverage(_G.reactor.getControlRodsLevels())
-        _G.fuelUsage = fuel.fuelConsumedLastTick / 1000
-        _G.waste = _G.reactor.getWasteAmount()
-        _G.fuelTemp = _G.reactor.getFuelTemperature()
-        _G.caseTemp = _G.reactor.getCasingTemperature()
-    elseif (_G.reactorVersion == "Bigger Reactors") then
-        _G.storedThisTick = _G.reactor.battery().stored()
-        _G.lastRFT = _G.reactor.battery().producedLastTick()
-        _G.capacity = _G.reactor.battery().capacity()
-        _G.rod = _G.reactor.getControlRod(0).level()
-        _G.fuelUsage = _G.reactor.fuelTank().burnedLastTick() / 1000
-        _G.waste = _G.reactor.fuelTank().waste()
-        _G.fuelTemp = _G.reactor.fuelTemperature()
-        _G.caseTemp = _G.reactor.casingTemperature()
-    end
-    _G.rfLost = math.floor(_G.lastRFT + _G.storedLastTick - _G.storedThisTick + 0.5)
-end
+    --     _G.storedThisTick = bat.energyStored
+    --     _G.lastRFT = bat.energyProducedLastTick
+    --     _G.capacity = bat.energyCapacity
+    --     _G.rod = calculateAverage(_G.reactor.getControlRodsLevels())
+    --     _G.fuelUsage = fuel.fuelConsumedLastTick / 1000
+    --     _G.waste = _G.reactor.getWasteAmount()
+    --     _G.fuelTemp = _G.reactor.getFuelTemperature()
+    --     _G.caseTemp = _G.reactor.getCasingTemperature()
+    -- elseif (_G.reactorVersion == "Bigger Reactors") then
+    --     _G.storedThisTick = _G.reactor.battery().stored()
+    --     _G.lastRFT = _G.reactor.battery().producedLastTick()
+    --     _G.capacity = _G.reactor.battery().capacity()
+    --     _G.rod = _G.reactor.getControlRod(0).level()
+    --     _G.fuelUsage = _G.reactor.fuelTank().burnedLastTick() / 1000
+    --     _G.waste = _G.reactor.fuelTank().waste()
+    --     _G.fuelTemp = _G.reactor.fuelTemperature()
+    --     _G.caseTemp = _G.reactor.casingTemperature()
+    -- end
+    -- _G.rfLost = math.floor(_G.lastRFT + _G.storedLastTick - _G.storedThisTick + 0.5)
+-- end
 
 --TODO: Update this to handle settings for multiple reactors and turbines
 local function loadFromConfig()
@@ -241,27 +182,34 @@ local function loadFromConfig()
     _G.reactor.setActive(_G.btnOn)
 end
 
-local function getAllPeripheralIdsForType(targetType)
-    ---@type table<string, boolean>
-    local peripheralIds = {}
-    for _, id in pairs(peripheral.getNames()) do
-        if (peripheral.getType(id) == targetType) then
-            peripheralIds[id] = true
-        end
-    end
-    return peripheralIds
-end
-
 ---@param monitorID string
 local function connectMonitor(monitorID)
     print("Monitor "..monitorID.." connected!")
     monitors[monitorID] = Monitor.new(monitorID)
 end
 
-local function discoverAndConnectMonitors()
-    local ids = getAllPeripheralIdsForType("monitor")
-    for id, _ in pairs(ids) do
-        connectMonitor(id)
+---@param reactorID string
+local function connectExtremeReactor(reactorID)
+    print("Extreme Reactor "..reactorID.." connected!")
+    reactors[reactorID] = Reactor.newExtremeReactor(reactorID)
+    _G.selectedReactor = reactors[reactorID]
+end
+
+---@param energyBufferID string
+local function connectForgeEnergyBuffer(energyBufferID)
+    print("Energy Buffer "..energyBufferID.." connected!")
+    energyBuffers[energyBufferID] = EnergyBuffer.newForgeEnergyBuffer(energyBufferID)
+end
+
+---@param energyBufferID string
+local function connectReactorEnergyBuffer(energyBufferID)
+    print("Reactor Energy Buffer "..energyBufferID.." connected!")
+    energyBuffers[energyBufferID] = EnergyBuffer.newReactorEnergyBuffer(energyBufferID)
+end
+
+local function firePeriphalAttachEventForAllPeripherals()
+    for _, id in pairs(peripheral.getNames()) do
+        os.queueEvent("peripheral", id)
     end
 end
 
@@ -272,11 +220,47 @@ local function redrawMonitors()
     end
 end
 
+---@param currentTickNumber number
+local function updateEnergyBuffers(currentTickNumber)
+    for _, energyBuffer in pairs(energyBuffers) do
+        energyBuffer:update(currentTickNumber)
+    end
+end
+
+---@param currentTickNumber number
+local function updateReactors(currentTickNumber)
+    for _, reactor in pairs(reactors) do
+        reactor:update(currentTickNumber)
+    end
+end
+
+function _G.setReactors(active)
+    for _, reactor in pairs(reactors) do
+        reactor.setActive(active)
+    end
+end
+
+local function updateReactorRods()
+    for _, reactor in pairs(reactors) do
+        reactor:updateRods()
+    end
+end
+
 ---@param peripheralID string
 local function handlePeripheralDetach(peripheralID)
     if monitors[peripheralID] ~= nil then
         print("Monitor "..peripheralID.." disconnected!")
         monitors[peripheralID] = nil
+    end
+
+    if energyBuffers[peripheralID] ~= nil then
+        print("Energy Buffer "..peripheralID.." disconnected!")
+        energyBuffers[peripheralID] = nil
+    end
+
+    if reactors[peripheralID] ~= nil then
+        print("Reactor "..peripheralID.." disconnected!")
+        reactors[peripheralID] = nil
     end
 end
 
@@ -285,56 +269,26 @@ end
 local function handlePeripheralAttach(peripheralID, peripheralType)
     if peripheralType == "monitor" then
         connectMonitor(peripheralID)
-    elseif peripheralType == "BiggerReactors_Reactor" then
-        print("DEBUG: Attached Reactor")
+    elseif peripheralType == "BigReactors-Reactor" then
+        connectExtremeReactor(peripheralID)
+        connectReactorEnergyBuffer(peripheralID)
+    elseif peripheralType == "energy_storage" then
+        connectForgeEnergyBuffer(peripheralID)
     else
         print("Unknown peripheral", peripheralID, "of type", peripheralType, "attached to network")
     end
 end
 
-local function updateAverages()
-    table.insert(storedThisTickValues, _G.storedThisTick)
-    table.insert(lastRFTValues, _G.lastRFT)
-    table.insert(rodValues, _G.rod)
-    table.insert(fuelUsageValues, _G.fuelUsage)
-    table.insert(wasteValues, _G.waste)
-    table.insert(fuelTempValues, _G.fuelTemp)
-    table.insert(caseTempValues, _G.caseTemp)
-    table.insert(rfLostValues, _G.rfLost)
 
-    local maxIterations = 20 * _G.SECONDS_TO_AVERAGE
-    while #storedThisTickValues > maxIterations do
-        table.remove(storedThisTickValues, 1)
-        table.remove(lastRFTValues, 1)
-        table.remove(rodValues, 1)
-        table.remove(fuelUsageValues, 1)
-        table.remove(wasteValues, 1)
-        table.remove(fuelTempValues, 1)
-        table.remove(caseTempValues, 1)
-        table.remove(rfLostValues, 1)
-    end
-
-    -- Calculate running averages
-    _G.averageStoredThisTick = calculateAverage(storedThisTickValues)
-    _G.averageLastRFT = calculateAverage(lastRFTValues)
-    _G.averageRod = calculateAverage(rodValues)
-    _G.averageFuelUsage = calculateAverage(fuelUsageValues)
-    _G.averageWaste = calculateAverage(wasteValues)
-    _G.averageFuelTemp = calculateAverage(fuelTempValues)
-    _G.averageCaseTemp = calculateAverage(caseTempValues)
-    _G.averageRfLost = calculateAverage(rfLostValues)
-end
-
-local iterations = 0
-_G.TICKS_TO_REDRAW = 4
-local function runLoop()
-    updateRods()
-    if iterations % TICKS_TO_REDRAW == 0 then
+_G.TICKS_TO_REDRAW = 1
+local function runLoop(currentTickNumber)
+    updateEnergyBuffers(currentTickNumber)
+    updateReactors(currentTickNumber)
+    updateOverallStats()
+    if currentTickNumber % TICKS_TO_REDRAW == 0 then
         redrawMonitors()
     end
-    iterations = iterations + 1
 end
-
 
 local function eventListener()
     while true do
@@ -357,39 +311,36 @@ local function loop()
     local loopEventName = "yield"
     local curTime = math.floor(os.clock() * 20)
     local lastTime = curTime
-    local maxRetries = 5
-    local tries = 0
 
     os.sleep(0)
     while true do
         curTime = math.floor(os.clock() * 20)
-        if curTime < lastTime + 1 then
+
+        local reactorCount = 0
+        for _, reactor in pairs(_G.reactors) do
+            reactorCount = reactorCount + 1
+        end
+        if reactorCount < 1 then
+            print("Reactor not detected! Please connect a reactor!")
+            sleep(1)
+        elseif curTime < lastTime + 1 then
             os.queueEvent(loopEventName)
             os.pullEvent(loopEventName)
         elseif curTime > lastTime + 1 then
+            -- We have missed the data from the last tick
             print("Missed last", curTime - lastTime - 1, "ticks!", curTime)
-            updateStats()
+            runLoop(curTime)
         else
+            local t = os.epoch("utc")
             -- Guaranteed to run at the start of a new tick
-            updateStats()
-            if _G.lastRFTPrev ~= nil and _G.storedLastTick ~= nil then
-
-                -- Since we are executing on a separate thread, we need to poll until the reactor has updated it's values in the new tick.
-                -- Usually this is only 3-4 iterations as the reactor does not take long to update stats.
-                -- If it takes more than 5 iterations we give up and try again in the next tick
-                tries = 0
-                while _G.lastRFT == _G.lastRFTPrev and _G.storedThisTick == _G.storedLastTick or tries < maxRetries do
-                    updateStats()
-                    tries = tries + 1
-                end
-                updateAverages()
-                runLoop()
+            while os.epoch("utc") - t < 2 do
+                os.queueEvent(loopEventName)
+                os.pullEvent(loopEventName)
             end
+            runLoop(curTime)
+            updateReactorRods()
             os.sleep(0)
         end
-        _G.storedLastTick = _G.storedThisTick
-        _G.averageStoredLastTick = _G.averageStoredThisTick
-        _G.lastRFTPrev = _G.lastRFT
         lastTime = curTime
     end
 end
@@ -427,29 +378,18 @@ function _G.main()
     term.clear()
     term.setCursorPos(1,1)
 
-    local reactorDetected = false
-    while not reactorDetected do
-        reactorDetected = detectReactor()
-        if not reactorDetected then
-            print("Reactor not detected! Trying again...")
-            sleep(1)
-        end
-    end
-
-    print("Reactor detected!")
+    _G.monitors = {}
+    _G.reactors = {}
+    _G.turbines = {}
+    _G.energyBuffers = {}
 
     _G.maxb = 70
     _G.minb = 30
     _G.rod = 80
     _G.btnOn = true
-    _G.btnOff = not _G.btnOn
-    _G.reactor.setActive(_G.btnOn)
-    discoverAndConnectMonitors()
 
-    -- initMon()
-    -- print("Writing config to disk...")
-    -- saveToConfig()
-    -- print("Reactor initialization done! Starting controller")
+    -- Manually fire the "peripheral" event to make sure all the connected peripherals are initialized correctly.
+    firePeriphalAttachEventForAllPeripherals()
 
     -- term.clear()
     -- term.setCursorPos(1,1)
@@ -457,5 +397,5 @@ function _G.main()
     -- print("Reactor Mod: "..reactorVersion)
     --main loop
 
-    parallel.waitForAny(loop, eventListener)
+    parallel.waitForAll(loop, eventListener)
 end

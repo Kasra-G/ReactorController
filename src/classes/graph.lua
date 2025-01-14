@@ -90,11 +90,3 @@ local function drawControlGraph(mon, offset, size, averageRod)
         colors.black
     )
 end
-local sizey = 1
-local controlGraph = _G.Graph.new(
-    "Control Level",
-    "Control Level",
-    Vector2.new(27, 4),
-    Vector2.new(15, sizey - 7),
-    drawControlGraph
-)
