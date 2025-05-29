@@ -1,0 +1,4 @@
+_G.UPDATE_CONFIG = {
+    FIRST_TIME_SETUP_COMPLETE = false,
+    AUTOUPDATE = false,
+}
