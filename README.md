@@ -11,10 +11,10 @@ Easily automate your Bigger/Extreme reactor with a pretty graphical UI. <br />
   </bl>
 
 ## Turbine support??
-Not yet. Check out this script if you want a nice script with turbine support. <br />
+Probably not. Turbine support seriously ups the complexity of both the program and the setup needed to use the program. <br />
+Check out this script if you want a nice program with turbine support. <br />
 https://gitlab.com/seekerscomputercraft/extremereactorcontrol/
 
-I do want to eventually add turbine support, but it will take me some time to implement it, make sure the changes are backwards compatible, and then create the UI for it. I also work full time now, so time is much more sparse.
 ## Installation
   <ol>
     <li>
@@ -45,16 +45,16 @@ I do want to eventually add turbine support, but it will take me some time to im
 ![2021-05-24_20 30 13](https://user-images.githubusercontent.com/18647702/119422464-27fbd600-bccf-11eb-8a38-61909bb6aae8.png)
 
 ## Known Issues
-- If the reactor has a very large max RF/t generation capacity but a low RF/t drain, it may oscillate around the target buffer. This is partly due to my inexperience with setting PID constants, so any help here would be appreciated.
+- If the reactor has a very large max RF/t generation capacity but a low RF/t drain, it may oscillate around the target buffer. This is a limitation of the specific PID controller implementation used.
   - Workaround: increase the range of the buffer, YMMV
 - Sometimes, the RF/t Drain statistic will fluctuate wildly. I don't think this is caused by the program, but in singleplayer, the issue seems to start when directly interacting with the reactor UI, and seems to get better by relogging.
 
 ## Future Plans
-- Turbine support
-- Fully customizable colors
+- Multi monitor support
+- External power bank support
   
 ## Update History
-Last update: 12/14/2024 <p>
+  <b>05/29/2025:</b> Update future turbine support plans <p>
   <b>12/14/2024:</b> Fix issue with Pastebin API, and some major internal code refactors <p>
   <b>12/04/2023:</b> Changed Control rod insertion logic to use a PID controller <p>
   <b>5/24/2021:</b> Added support for Extreme Reactors and Big Reactors <p>
